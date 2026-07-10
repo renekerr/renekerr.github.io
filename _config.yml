@@ -1,0 +1,27 @@
+# Setup
+title:               Low Priv Notes
+tagline:             'Exploring alternative exploitation paths'
+description:         'Notes, CTF writeups and security research. Focusing on alternative privilege escalation vectors.'
+url:                 'https://renekerr.github.io'
+baseurl:             ''
+paginate:            5
+paginate_path:       "/page:num"
+permalink:           pretty
+
+# Author
+author:
+  name:              Rene Kerr
+  url:               https://github.com/renekerr
+
+# Plugins
+plugins:
+  - jekyll-paginate
+
+# Markdown
+markdown:            kramdown
+# Sidebar links
+sidebar_nav:
+  - title: Home
+    url: /
+  - title: About
+    url: /about

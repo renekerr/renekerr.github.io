@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+  <head>
+  <link href="http://gmpg.org/xfn/11" rel="profile">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+
+  <title>
+    
+      Username Enumeration via Response Timing &middot; Low Priv Notes
+    
+  </title>
+
+  
+  <link rel="canonical" href="http://localhost:4000/websec/2026/07/07/username-enumeration-timing/">
+  
+
+  <link rel="stylesheet" href="http://localhost:4000/public/css/poole.css">
+  <link rel="stylesheet" href="http://localhost:4000/public/css/syntax.css">
+  <link rel="stylesheet" href="http://localhost:4000/public/css/lanyon.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=PT+Serif:400,400italic,700%7CPT+Sans:400">
+
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="http://localhost:4000/public/apple-touch-icon-precomposed.png">
+  <link rel="shortcut icon" href="http://localhost:4000/public/favicon.ico">
+
+  <link rel="alternate" type="application/rss+xml" title="RSS" href="http://localhost:4000/atom.xml">
+
+  
+</head>
+
+
+  <body>
+
+    <input type="checkbox" class="sidebar-checkbox" id="sidebar-checkbox">
+
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-item">
+    <p>Notes, CTF writeups and security research. Focusing on alternative privilege escalation vectors.</p>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a class="sidebar-nav-item" href="http://localhost:4000/">Home</a>
+    <a class="sidebar-nav-item" href="http://localhost:4000/about">About</a>
+  </nav>
+
+  <div class="sidebar-item">
+    <p>
+      &copy; 2026. All rights reserved.
+    </p>
+  </div>
+</div>
+
+
+    <!-- Wrap is the content to shift when toggling the sidebar. We wrap the
+         content to avoid any CSS collisions with our real content. -->
+    <div class="wrap">
+      <div class="masthead">
+        <div class="container">
+          <h3 class="masthead-title">
+            <a href="/" title="Home">Low Priv Notes</a>
+<br>            
+<small>Exploring alternative exploitation paths</small>
+          </h3>
+        </div>
+      </div>
+
+      <div class="container content">
+        <div class="post">
+  <h1 class="post-title">Username Enumeration via Response Timing</h1>
+  <span class="post-date">07 Jul 2026</span>
+  <h2 id="overview">Overview</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Platform</strong></td>
+      <td>PortSwigger Web Security Academy</td>
+    </tr>
+    <tr>
+      <td><strong>Difficulty</strong></td>
+      <td>Practitioner</td>
+    </tr>
+    <tr>
+      <td><strong>URL</strong></td>
+      <td><a href="https://portswigger.net/web-security/authentication/password-based/lab-username-enumeration-via-response-timing" target="_blank">Username enumeration via response timing</a></td>
+    </tr>
+    <tr>
+      <td><strong>Focus</strong></td>
+      <td>A login form that never changes its error message still leaks valid usernames — through how long it takes to respond</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>This one’s a good reminder that “the response looks identical” isn’t the same as “the response is identical.” The login form always says the same thing when you get it wrong. The clock doesn’t lie the same way the error message does.</p>
+
+<hr />
+
+<h2 id="the-idea-timing-as-a-side-channel">The Idea: Timing as a Side Channel</h2>
+
+<p>The app checks credentials in two steps: first it looks up the username, then — only if that username exists — it checks the password. That second step is the expensive one, and it gets slower the longer the submitted password is. So if I submit a real username with a very long password, the app does real work and takes a while. If I submit a fake username, it never gets that far and comes back fast, no matter how long the password is.</p>
+
+<p>Same error message either way. Different amount of time to produce it. That gap is the whole attack.</p>
+
+<p>There’s also IP-based rate limiting on failed logins, which needed dealing with before I could test usernames at any scale.</p>
+
+<blockquote>
+  <p>One thing worth flagging up front: the valid username and password I found here (<code class="language-plaintext highlighter-rouge">agenda</code> / <code class="language-plaintext highlighter-rouge">superman</code>) are randomized per lab instance by PortSwigger. If you run this lab yourself, you’ll almost certainly land on a different pair — it’s the technique that carries over, not these two words.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="establishing-the-baseline">Establishing the Baseline</h2>
+
+<p>First, a normal login to see the request shape:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>POST /login HTTP/1.1
+Host: &lt;LAB_ID&gt;.web-security-academy.net
+Cookie: session=wKT8bdev9iX9fWYQLQNu[...]
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 30
+
+username=wiener&amp;password=peter
+</code></pre></div></div>
+
+<p>Straightforward — <code class="language-plaintext highlighter-rouge">username</code> and <code class="language-plaintext highlighter-rouge">password</code>, nothing unusual.</p>
+
+<h2 id="getting-rate-limited-and-around-it">Getting Rate-Limited (and Around It)</h2>
+
+<p>A handful of failed attempts in a row got me this:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>You have made too many incorrect login attempts. Please try again in 30 minute(s)
+</code></pre></div></div>
+
+<p>Classic IP-based lockout. Poking at it, the app was trusting the <code class="language-plaintext highlighter-rouge">X-Forwarded-For</code> header to decide which IP to block — a pretty common mistake when an app assumes it’s always sitting behind a proxy, without checking that the request actually came through one.</p>
+
+<p><code class="language-plaintext highlighter-rouge">X-Forwarded-For</code> exists so a proxy can tell the app “this request really came from this IP,” since otherwise the app would only ever see the proxy’s own address. The problem is it’s just a regular header — nothing stops a client from setting it themselves. If the app doesn’t verify the request came through a proxy it trusts, anyone can claim to be any IP they like.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>X-Forwarded-For: 1.2.3.4
+</code></pre></div></div>
+
+<p>Sending that on a blocked request lifted the lockout immediately. Nudging the value slightly on every request (last octet up by one, say) meant no single IP ever built up enough failed attempts to get blocked again.</p>
+
+<h2 id="confirming-the-timing-gap">Confirming the Timing Gap</h2>
+
+<p>With the lockout dealt with, I compared a short password against a very long one (~480 characters), for both a username that exists and one that doesn’t:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Username</th>
+      <th>Password length</th>
+      <th>Response time</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">carlos123456</code> (fake)</td>
+      <td>short</td>
+      <td>392 ms</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">carlos123456</code> (fake)</td>
+      <td>~480 chars</td>
+      <td>619 ms</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">wiener</code> (real)</td>
+      <td>short</td>
+      <td>486 ms</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">wiener</code> (real)</td>
+      <td>~480 chars</td>
+      <td><strong>2765 ms</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>For the fake username, the long password barely registers. For the real one, it more than quintuples the response time. That’s a big enough gap to automate against.</p>
+
+<h2 id="automating-the-search-with-intruder">Automating the Search with Intruder</h2>
+
+<p>I set up a Burp Intruder attack:</p>
+
+<ul>
+  <li><strong>Attack type:</strong> Pitchfork — walks two lists in lockstep, one item from each per request, instead of testing every combination like Cluster Bomb would</li>
+  <li><strong>List 1:</strong> candidate usernames</li>
+  <li><strong>List 2:</strong> a slightly different <code class="language-plaintext highlighter-rouge">X-Forwarded-For</code> value on every request, to dodge the lockout</li>
+  <li><strong>Password (fixed for every request):</strong> the same ~480-character junk string</li>
+</ul>
+
+<p>Community Edition sends these one at a time instead of in parallel like Pro does, which sounds like a downside but actually helps here — concurrent requests would add network noise that muddies the timing. It just takes longer to finish.</p>
+
+<p>Sorted by response time, one result stood out immediately:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>username=agenda&amp;password=[...480 chars]  →  2441 ms
+</code></pre></div></div>
+
+<p>Everything else sat in the normal 300–700 ms range. Ran it twice more by hand in Repeater to rule out a fluke (2441 ms, then 2771 ms) — <code class="language-plaintext highlighter-rouge">agenda</code> is a real account.</p>
+
+<h2 id="brute-forcing-the-password">Brute-Forcing the Password</h2>
+
+<p>Same Pitchfork setup, but now <code class="language-plaintext highlighter-rouge">username</code> is fixed to <code class="language-plaintext highlighter-rouge">agenda</code> and the second list is candidate passwords instead of spoofed IPs. Timing doesn’t matter for this part — the tell is the <strong>status code</strong>. Wrong password: <code class="language-plaintext highlighter-rouge">200</code>, same login page. Right one: <code class="language-plaintext highlighter-rouge">302</code>, a redirect.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>HTTP/2 302 Found
+Location: /my-account?id=agenda
+Set-Cookie: session=4cn0Wh4OwhZHL7FbRtwo[...]; Secure; HttpOnly; SameSite=None
+</code></pre></div></div>
+
+<p>Working login: <code class="language-plaintext highlighter-rouge">agenda:superman</code>.</p>
+
+<h2 id="logging-in">Logging In</h2>
+
+<p>One last wrinkle: my actual browser’s IP was still locked out from earlier attempts, only the spoofed IPs weren’t. Burp’s “Request in browser (in original session)” feature on the successful Repeater request let me carry that session over into the browser directly, instead of trying to log in normally and hitting the lockout again.</p>
+
+<p>That landed on <code class="language-plaintext highlighter-rouge">/my-account?id=agenda</code> — lab solved.</p>
+
+<hr />
+
+<h2 id="attack-flow">Attack Flow</h2>
+
+<div class="mermaid">
+sequenceDiagram
+    participant A as Attacker (Burp Suite)
+    participant S as Login Endpoint
+    A-&gt;&gt;S: POST /login (invalid creds, repeated)
+    S--&gt;&gt;A: Lockout - try again in 30 min
+    A-&gt;&gt;S: POST /login + X-Forwarded-For spoofed IP
+    S--&gt;&gt;A: 200 OK - lockout bypassed
+    Note over A,S: Timing calibration
+    A-&gt;&gt;S: username=invalid + long password
+    S--&gt;&gt;A: ~600ms fast rejection
+    A-&gt;&gt;S: username=wiener valid + long password
+    S--&gt;&gt;A: ~2700ms password check executed
+    Note over A,S: Intruder - username enumeration Pitchfork
+    A-&gt;&gt;S: candidate usernames + long password + rotating IP
+    S--&gt;&gt;A: agenda - ~2400-2700ms outlier
+    Note over A,S: Intruder - password brute-force Pitchfork
+    A-&gt;&gt;S: agenda + candidate passwords + rotating IP
+    S--&gt;&gt;A: 302 Found superman - login success
+    A-&gt;&gt;S: GET /my-account?id=agenda authenticated
+    S--&gt;&gt;A: Account page - lab solved
+</div>
+
+<hr />
+
+<h2 id="key-takeaways">Key Takeaways</h2>
+
+<p><strong>Response time can leak what the response body never does.</strong> An expensive check that only runs “if this username is real” gives away account existence through delay alone, even with an identical error message and status code.</p>
+
+<p><strong>A header is only trustworthy if something verifies it.</strong> Relying on <code class="language-plaintext highlighter-rouge">X-Forwarded-For</code> to know the “real” client IP, without confirming the request came through an actual trusted proxy, lets anyone claim to be any IP they want.</p>
+
+<p><strong>Pitchfork beats Cluster Bomb when two lists should move together</strong> — a username list paired one-to-one with a list of throwaway IPs, instead of testing every username against every IP.</p>
+
+</div>
+
+
+<div class="related">
+  <h2>Related posts</h2>
+  <ul class="related-posts">
+    
+      <li>
+        <h3>
+          <a href="/ctf/web/2026/07/10/blog/">
+            Blog
+            <small>10 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/ctf/2026/07/08/watcher/">
+            Watcher
+            <small>08 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/ctf/2026/07/06/stuxctf/">
+            StuxCTF
+            <small>06 Jul 2026</small>
+          </a>
+        </h3>
+      </li>
+    
+  </ul>
+</div>
+
+
+      </div>
+    </div>
+
+    <label for="sidebar-checkbox" class="sidebar-toggle"></label>
+
+    <script src='/public/js/script.js'></script>
+  </body>
+</html>
