@@ -27,11 +27,11 @@ I start with a full port scan:
 ```bash
 nmap -sS -sC -sV -O -n -Pn -p- <TARGET_IP> -oN nmap.txt
 
-PORT      STATE SERVICE  VERSION
-25/tcp    open  smtp     Postfix smtpd
-80/tcp    open  http     Apache httpd 2.4.7 ((Ubuntu))
-55006/tcp open  ssl/pop3 Dovecot pop3d
-55007/tcp open  pop3     Dovecot pop3d
+PORT STATE SERVICE VERSION
+25/tcp open smtp Postfix smtpd
+80/tcp open http Apache httpd 2.4.7 ((Ubuntu))
+55006/tcp open ssl/pop3 Dovecot pop3d
+55007/tcp open pop3 Dovecot pop3d
 ```
 
 SMTP, a web server, and POP3 on two non-standard ports (one over SSL). There's no SSH exposed, which already tells me the intended path is through mail, not a shell service.
@@ -73,7 +73,7 @@ This is where the room's real structure shows up — POP3 access to one mailbox 
 ```bash
 hydra -l boris -P /usr/share/wordlists/fasttrack.txt pop3://<TARGET_IP>:55007
 
-[55007][pop3] host: <TARGET_IP>   login: boris   password: secret1!
+[55007][pop3] host: <TARGET_IP> login: boris password: secret1!
 ```
 
 Boris's inbox is mostly noise, but one email mentions "Alec" and final codes stored somewhere on root — a hint I file away for later, not something to act on yet. What matters right now is that `natalya` also needs brute-forcing, since I don't have her password from anywhere else:
@@ -81,7 +81,7 @@ Boris's inbox is mostly noise, but one email mentions "Alec" and final codes sto
 ```bash
 hydra -l natalya -P /usr/share/wordlists/fasttrack.txt pop3://<TARGET_IP>:55007
 
-[55007][pop3] host: <TARGET_IP>   login: natalya   password: bird
+[55007][pop3] host: <TARGET_IP> login: natalya password: bird
 ```
 
 Natalya's inbox has an email from root assigning a brand-new account:
@@ -200,20 +200,31 @@ Root.
 
 <div class="mermaid">
 graph TD
-    A["Nmap scan<br/>SMTP, HTTP, POP3 exposed"] --> B["terminal.js<br/>HTML-entity encoded password"]
-    B --> C["SMTP VRFY<br/>confirms boris, natalya"]
-    C --> D["Hydra POP3 brute-force<br/>boris mailbox"]
-    D --> E["Hydra POP3 brute-force<br/>natalya mailbox"]
-    E --> F["Email leak<br/>xenia credentials + internal domain"]
-    F --> G["Internal portal access<br/>doak found, mailbox cracked"]
-    G --> H["Email leak<br/>dr_doak credentials"]
-    H --> I["Portal file s3cret.txt<br/>points to JPEG"]
-    I --> J["EXIF + base64 decode<br/>admin password"]
-    J --> K["Admin panel<br/>PSpellShell engine switch"]
-    K --> L["Unvalidated path field<br/>command injection"]
-    L --> M["Reverse shell<br/>www-data"]
-    M --> N["overlayfs exploit<br/>clang instead of gcc"]
-    N --> O["Root shell"]
+ subgraph RECON["RECON"]
+  A["Nmap scan SMTP HTTP POP3"]
+ end
+ 
+ subgraph ENUM["ENUMERATION"]
+  B["terminal.js password descubierto"] --> C["SMTP VRFY usuarios confirmados"]
+  D["Hydra POP3 brute-force"] --> E["Credenciales y dominio interno"]
+  F["Portal file s3cret descubierto"] --> G["EXIF + base64 decode"]
+ end
+ 
+ subgraph EXPL["EXPLOITATION"]
+  H["Admin panel acceso obtenido"] --> I["PSpellShell engine switch"]
+  I --> J["Command injection RCE"]
+  J --> K["Reverse shell www-data"]
+ end
+ 
+ subgraph PRIVESC["PRIVESC"]
+  L["overlayfs exploit clang"] --> M["Root shell obtenida"]
+ end
+ 
+ A --> B
+ C --> D
+ E --> F
+ G --> H
+ K --> L
 </div>
 
 ---

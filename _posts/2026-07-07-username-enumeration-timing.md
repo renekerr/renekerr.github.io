@@ -93,7 +93,7 @@ Community Edition sends these one at a time instead of in parallel like Pro does
 Sorted by response time, one result stood out immediately:
 
 ```
-username=agenda&password=[...480 chars]  →  2441 ms
+username=agenda&password=[...480 chars] → 2441 ms
 ```
 
 Everything else sat in the normal 300–700 ms range. Ran it twice more by hand in Repeater to rule out a fluke (2441 ms, then 2771 ms) — `agenda` is a real account.
@@ -122,25 +122,25 @@ That landed on `/my-account?id=agenda` — lab solved.
 
 <div class="mermaid">
 sequenceDiagram
-    participant A as Attacker (Burp Suite)
-    participant S as Login Endpoint
-    A->>S: POST /login (invalid creds, repeated)
-    S-->>A: Lockout - try again in 30 min
-    A->>S: POST /login + X-Forwarded-For spoofed IP
-    S-->>A: 200 OK - lockout bypassed
-    Note over A,S: Timing calibration
-    A->>S: username=invalid + long password
-    S-->>A: ~600ms fast rejection
-    A->>S: username=wiener valid + long password
-    S-->>A: ~2700ms password check executed
-    Note over A,S: Intruder - username enumeration Pitchfork
-    A->>S: candidate usernames + long password + rotating IP
-    S-->>A: agenda - ~2400-2700ms outlier
-    Note over A,S: Intruder - password brute-force Pitchfork
-    A->>S: agenda + candidate passwords + rotating IP
-    S-->>A: 302 Found superman - login success
-    A->>S: GET /my-account?id=agenda authenticated
-    S-->>A: Account page - lab solved
+ participant A as Attacker (Burp Suite)
+ participant S as Login Endpoint
+ A->>S: POST /login (invalid creds, repeated)
+ S-->>A: Lockout - try again in 30 min
+ A->>S: POST /login + X-Forwarded-For spoofed IP
+ S-->>A: 200 OK - lockout bypassed
+ Note over A,S: Timing calibration
+ A->>S: username=invalid + long password
+ S-->>A: ~600ms fast rejection
+ A->>S: username=wiener valid + long password
+ S-->>A: ~2700ms password check executed
+ Note over A,S: Intruder - username enumeration Pitchfork
+ A->>S: candidate usernames + long password + rotating IP
+ S-->>A: agenda - ~2400-2700ms outlier
+ Note over A,S: Intruder - password brute-force Pitchfork
+ A->>S: agenda + candidate passwords + rotating IP
+ S-->>A: 302 Found superman - login success
+ A->>S: GET /my-account?id=agenda authenticated
+ S-->>A: Account page - lab solved
 </div>
 
 ---

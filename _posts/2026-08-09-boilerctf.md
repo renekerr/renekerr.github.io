@@ -27,11 +27,11 @@ I started with a full port scan to identify what services were running:
 ```bash
 nmap -sS -sC -sV -O -Pn -p 21,80,10000,55007 <TARGET_IP>
 
-PORT      STATE SERVICE VERSION
-21/tcp    open  ftp     vsftpd 3.0.3
-80/tcp    open  http    Apache httpd 2.4.18 ((Ubuntu))
-10000/tcp open  http    MiniServ 1.930 (Webmin httpd)
-55007/tcp open  ssh     OpenSSH 7.2p2 Ubuntu 4ubuntu2.8
+PORT STATE SERVICE VERSION
+21/tcp open ftp vsftpd 3.0.3
+80/tcp open http Apache httpd 2.4.18 ((Ubuntu))
+10000/tcp open http MiniServ 1.930 (Webmin httpd)
+55007/tcp open ssh OpenSSH 7.2p2 Ubuntu 4ubuntu2.8
 ```
 
 The scan revealed four open ports. At this point, I noted:
@@ -56,8 +56,8 @@ Joomla 3.9.12 is relatively old but not directly exploitable. I needed to find w
 
 ```bash
 feroxbuster -u http://<TARGET_IP>/joomla/ -w /usr/share/wordlists/dirb/common.txt \
-  -x html,php,txt,js,json,bak,old,new,jpg --extract-links --scan-limit 2 \
-  --filter-status 401,403,404,405,500 --scan-dir-listings
+ -x html,php,txt,js,json,bak,old,new,jpg --extract-links --scan-limit 2 \
+ --filter-status 401,403,404,405,500 --scan-dir-listings
 
 301 http://<TARGET_IP>/joomla/_test/
 ```
@@ -88,7 +88,7 @@ $ id
 uid=1001(basterd) gid=1001(basterd) groups=1001(basterd)
 
 $ ls -la /home/basterd
--rwxr-xr-x 1 stoner  basterd  699 Aug 21  2019 backup.sh
+-rwxr-xr-x 1 stoner basterd 699 Aug 21 2019 backup.sh
 ```
 
 I was in as `basterd`, a low-privileged user. The home directory was mostly empty except for one interesting file: `backup.sh`, owned by user `stoner`. This is a classic setup for privilege escalation — a script with hardcoded credentials in a comment or header.
@@ -129,7 +129,7 @@ Now I'm `stoner`. To reach root, I checked what `stoner` can do:
 ```bash
 sudo -l
 User stoner may run the following commands on Vulnerable:
-    (root) NOPASSWD: /NotThisTime/MessinWithYa
+ (root) NOPASSWD: /NotThisTime/MessinWithYa
 ```
 
 The binary `/NotThisTime/MessinWithYa` doesn't exist — another deliberate troll by the room author. The real vector is a SUID binary I found after running enumeration:
@@ -160,16 +160,30 @@ The `euid=0` confirms I'm running as root. No flags are discussed here.
 
 <div class="mermaid">
 graph TD
-    A["Reconnaissance<br/>nmap 4 ports identified"] --> B["HTTP Service<br/>Joomla 3.9.12 detected"]
-    B --> C["Directory Enumeration<br/>feroxbuster with common.txt"]
-    C --> D["sar2html Discovery<br/>Forgotten third-party tool"]
-    D --> E["Credential Extraction<br/>log.txt accessible via HTTP"]
-    E --> F["SSH Access<br/>basterd user on port 55007"]
-    F --> G["backup.sh Analysis<br/>stoner credentials found"]
-    G --> H["User Escalation<br/>su stoner"]
-    H --> I["SUID Binary Discovery<br/>find binary with setuid"]
-    I --> J["Shell Execution<br/>find -exec spawns sh"]
-    J --> K["Root Access Achieved"]
+ subgraph RECON["RECON"]
+  A["nmap 4 puertos detectados"]
+ end
+ 
+ subgraph ENUM["ENUMERATION"]
+  B["Joomla 3.9.12 detectado"] --> C["feroxbuster directory enumeration"]
+  C --> D["sar2html tool descubierto"]
+  D --> E["log.txt credenciales descubiertas"]
+ end
+ 
+ subgraph EXPL["EXPLOITATION"]
+  F["SSH access basterd puerto 55007"]
+ end
+ 
+ subgraph PRIVESC["PRIVESC"]
+  G["backup.sh analysis stoner"] --> H["User escalation su stoner"]
+  H --> I["SUID binary find con setuid"]
+  I --> J["Shell execution find -exec"]
+  J --> K["Root access obtenido"]
+ end
+ 
+ A --> B
+ E --> F
+ F --> G
 </div>
 
 ---

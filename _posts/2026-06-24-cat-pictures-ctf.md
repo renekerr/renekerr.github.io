@@ -27,12 +27,12 @@ Quick port scan:
 ```bash
 nmap -sS -sC -sV -p- <TARGET_IP>
 
-PORT     STATE    SERVICE      VERSION
-21/tcp   filtered ftp
-22/tcp   open     ssh          OpenSSH 8.2p1
+PORT STATE SERVICE VERSION
+21/tcp filtered ftp
+22/tcp open ssh OpenSSH 8.2p1
 2375/tcp filtered docker
-4420/tcp open     nvm-express?
-8080/tcp open     http         Apache httpd 2.4.46
+4420/tcp open nvm-express?
+8080/tcp open http Apache httpd 2.4.46
 ```
 
 Three open ports, two filtered. The web server is phpBB. Port 4420 is an "Internal Shell Service" that requires a password. SSH is available but we need credentials first.
@@ -53,7 +53,7 @@ This hints at Port Knocking. Try the sequence with knockit:
 ```bash
 python3 knockit.py -d 300 <TARGET_IP> 1111 2222 3333 4444 && sleep 1 && nmap -p21 <TARGET_IP>
 
-PORT   STATE    SERVICE
+PORT STATE SERVICE
 21/tcp filtered ftp
 ```
 
@@ -127,7 +127,7 @@ That file shouldn't be there. Check the mounted filesystems:
 ```bash
 df -h
 
-/dev/xvda1       20G   11G  8.4G  55% /opt/clean
+/dev/xvda1 20G 11G 8.4G 55% /opt/clean
 ```
 
 Wait — `/dev/xvda1` is the host's disk, and it's mounted here at `/opt/clean`. Let's see what's there:
@@ -180,12 +180,12 @@ Now that we have host access, let's investigate the Port Knocking configuration.
 cat /etc/knockd.conf
 
 [options]
-        UseSyslog
+ UseSyslog
 [openFTP]
-        sequence    = 1111,2222,3333,4444
-        seq_timeout = 15
-        command     = /sbin/iptables -A INPUT -s %IP% -p tcp --dport 21 -j ACCEPT && iptables -D INPUT -p tcp --dport 21 -j REJECT
-        tcpflags    = syn
+ sequence = 1111,2222,3333,4444
+ seq_timeout = 15
+ command = /sbin/iptables -A INPUT -s %IP% -p tcp --dport 21 -j ACCEPT && iptables -D INPUT -p tcp --dport 21 -j REJECT
+ tcpflags = syn
 ```
 
 The configuration looks correct. Now check the logs:
@@ -232,8 +232,8 @@ Now test it:
 ```bash
 python3 knockit.py -d 300 <TARGET_IP> 1111 2222 3333 4444 && sleep 1 && nmap -p21 <TARGET_IP>
 
-PORT   STATE SERVICE
-21/tcp open  ftp
+PORT STATE SERVICE
+21/tcp open ftp
 ```
 
 Port 21 opens immediately. One line fix. Massive impact.
@@ -244,19 +244,33 @@ Port 21 opens immediately. One line fix. Massive impact.
 
 <div class="mermaid">
 graph TD
-    A["nmap scan"] --> B["Port 8080<br/>phpBB forum"]
-    B --> C["Post hint<br/>Port Knocking 1111 2222 3333 4444"]
-    C --> D["knockit attempt<br/>fails silently"]
-    D --> E["External research<br/>password sardinethecat"]
-    E --> F["Port 4420 shell<br/>limited environment"]
-    F --> G["Reverse shell<br/>mkfifo to bash"]
-    G --> H["Binary runme<br/>strings analysis"]
-    H --> I["SSH key generation<br/>password rebecca"]
-    I --> J["SSH login<br/>second container as root"]
-    J --> K["Discover /opt/clean<br/>mounted from host"]
-    K --> L["Cron job injection<br/>reverse shell payload"]
-    L --> M["Root on host<br/>escape complete"]
-    M --> N["Investigate knockd logs<br/>find iptables path bug"]
+ subgraph RECON["RECON"]
+  A["nmap scan puerto 8080"]
+ end
+ 
+ subgraph ENUM["ENUMERATION"]
+  B["phpBB forum descubierto"] --> C["Port knocking hint: 1111 2222 3333 4444"]
+ end
+ 
+ subgraph EXPL["EXPLOITATION"]
+  D["knockit con secuencia"] --> E["Port 4420 shell obtenido"]
+  F["Binary analysis descubre SSH key"] --> G["SSH login como root"]
+ end
+ 
+ subgraph PRIVESC["PRIVESC"]
+  H["/opt/clean descubierto (host mounted)"] --> I["Cron job injection"]
+  I --> J["Root on host obtenido"]
+ end
+ 
+ subgraph POST["POST-EXPLOITATION"]
+  K["Investigar knockd logs - iptables bug"]
+ end
+ 
+ A --> B
+ C --> D
+ E --> F
+ G --> H
+ J --> K
 </div>
 
 ---
