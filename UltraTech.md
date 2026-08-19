@@ -14,11 +14,11 @@
 ```bash
 nmap -sS -sC -sV -O -A -p 21,22,8081,31331 <TARGET_IP> -oN nmap.txt
 
-PORT      STATE SERVICE VERSION
-21/tcp    open  ftp     vsftpd 3.0.5
-22/tcp    open  ssh     OpenSSH 8.2p1 Ubuntu 4ubuntu0.13 (Ubuntu Linux; protocol 2.0)
-8081/tcp  open  http    Node.js Express framework
-31331/tcp open  http    Apache httpd 2.4.41 ((Ubuntu))
+PORT STATE SERVICE VERSION
+21/tcp open ftp vsftpd 3.0.5
+22/tcp open ssh OpenSSH 8.2p1 Ubuntu 4ubuntu0.13 (Ubuntu Linux; protocol 2.0)
+8081/tcp open http Node.js Express framework
+31331/tcp open http Apache httpd 2.4.41 ((Ubuntu))
 ```
 
 Four open ports: FTP, SSH, a Node.js REST API (8081), and an Apache web server (31331).
@@ -36,8 +36,8 @@ UltraTech API v0.1.3
 ```bash
 gobuster dir -u http://<TARGET_IP>:8081/ -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -b 400,403,404
 
-/auth                 (Status: 200) [Size: 39]
-/ping                 (Status: 500) [Size: 1094]
+/auth (Status: 200) [Size: 39]
+/ping (Status: 500) [Size: 1094]
 ```
 
 The API exposes two routes: `/auth` and `/ping`.
@@ -49,15 +49,15 @@ The API exposes two routes: `/auth` and `/ping`.
 ```bash
 gobuster dir -u http://<TARGET_IP>:31331/ -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -b 400,403,404
 
-/js                   (Status: 301) [Size: 312] [--> http://<TARGET_IP>:31331/js/]
+/js (Status: 301) [Size: 312] [--> http://<TARGET_IP>:31331/js/]
 ```
 
 `http://<TARGET_IP>:31331/js/api.js` reveals:
 
 ```javascript
 function checkAPIStatus() {
-    const url = `http://${getAPIURL()}/ping?ip=${window.location.hostname}`
-    // checks every 10 seconds that the API is active
+ const url = `http://${getAPIURL()}/ping?ip=${window.location.hostname}`
+ // checks every 10 seconds that the API is active
 }
 checkAPIStatus()
 const interval = setInterval(checkAPIStatus, 10000);
@@ -182,8 +182,8 @@ No sudo privileges. However, membership in the `docker` group allows privilege e
 ```bash
 docker images
 
-REPOSITORY   TAG       IMAGE ID       CREATED       SIZE
-bash         latest    495d6437fc1e   7 years ago   15.8MB
+REPOSITORY TAG IMAGE ID CREATED SIZE
+bash latest 495d6437fc1e 7 years ago 15.8MB
 ```
 
 ```bash
@@ -217,16 +217,16 @@ Root's RSA private key is accessible from inside the container, giving full host
 
 ```mermaid
 graph TD
-    A["Recon\nnmap 4 ports"] --> B["Web enumeration\ngobuster ports 31331 and 8081"]
-    B --> C["JavaScript analysis\napi.js - ping and auth routes"]
-    C --> D["Command injection\nunsanitized ip parameter"]
-    D --> E["Command execution\nbackticks - ls, id, cat"]
-    E --> F["DB extraction\nutech.db.sqlite via --data-urlencode"]
-    F --> G["MD5 hashes\nr00t and admin"]
-    G --> H["hashcat cracking\nrockyou.txt"]
-    H --> I["SSH access\nr00t - docker group"]
-    I --> J["Docker privesc\nbash image - chroot /mnt"]
-    J --> K["Root on host\nuid=0"]
+ A["Recon\nnmap 4 ports"] --> B["Web enumeration\ngobuster ports 31331 and 8081"]
+ B --> C["JavaScript analysis\napi.js - ping and auth routes"]
+ C --> D["Command injection\nunsanitized ip parameter"]
+ D --> E["Command execution\nbackticks - ls, id, cat"]
+ E --> F["DB extraction\nutech.db.sqlite via --data-urlencode"]
+ F --> G["MD5 hashes\nr00t and admin"]
+ G --> H["hashcat cracking\nrockyou.txt"]
+ H --> I["SSH access\nr00t - docker group"]
+ I --> J["Docker privesc\nbash image - chroot /mnt"]
+ J --> K["Root on host\nuid=0"]
 ```
 
 ---

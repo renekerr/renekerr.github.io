@@ -201,7 +201,7 @@ username=wiener&amp;password=peter
 
 <p>Sorted by response time, one result stood out immediately:</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>username=agenda&amp;password=[...480 chars]  →  2441 ms
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>username=agenda&amp;password=[...480 chars] → 2441 ms
 </code></pre></div></div>
 
 <p>Everything else sat in the normal 300–700 ms range. Ran it twice more by hand in Repeater to rule out a fluke (2441 ms, then 2771 ms) — <code class="language-plaintext highlighter-rouge">agenda</code> is a real account.</p>
@@ -229,25 +229,25 @@ Set-Cookie: session=4cn0Wh4OwhZHL7FbRtwo[...]; Secure; HttpOnly; SameSite=None
 
 <div class="mermaid">
 sequenceDiagram
-    participant A as Attacker (Burp Suite)
-    participant S as Login Endpoint
-    A-&gt;&gt;S: POST /login (invalid creds, repeated)
-    S--&gt;&gt;A: Lockout - try again in 30 min
-    A-&gt;&gt;S: POST /login + X-Forwarded-For spoofed IP
-    S--&gt;&gt;A: 200 OK - lockout bypassed
-    Note over A,S: Timing calibration
-    A-&gt;&gt;S: username=invalid + long password
-    S--&gt;&gt;A: ~600ms fast rejection
-    A-&gt;&gt;S: username=wiener valid + long password
-    S--&gt;&gt;A: ~2700ms password check executed
-    Note over A,S: Intruder - username enumeration Pitchfork
-    A-&gt;&gt;S: candidate usernames + long password + rotating IP
-    S--&gt;&gt;A: agenda - ~2400-2700ms outlier
-    Note over A,S: Intruder - password brute-force Pitchfork
-    A-&gt;&gt;S: agenda + candidate passwords + rotating IP
-    S--&gt;&gt;A: 302 Found superman - login success
-    A-&gt;&gt;S: GET /my-account?id=agenda authenticated
-    S--&gt;&gt;A: Account page - lab solved
+ participant A as Attacker (Burp Suite)
+ participant S as Login Endpoint
+ A-&gt;&gt;S: POST /login (invalid creds, repeated)
+ S--&gt;&gt;A: Lockout - try again in 30 min
+ A-&gt;&gt;S: POST /login + X-Forwarded-For spoofed IP
+ S--&gt;&gt;A: 200 OK - lockout bypassed
+ Note over A,S: Timing calibration
+ A-&gt;&gt;S: username=invalid + long password
+ S--&gt;&gt;A: ~600ms fast rejection
+ A-&gt;&gt;S: username=wiener valid + long password
+ S--&gt;&gt;A: ~2700ms password check executed
+ Note over A,S: Intruder - username enumeration Pitchfork
+ A-&gt;&gt;S: candidate usernames + long password + rotating IP
+ S--&gt;&gt;A: agenda - ~2400-2700ms outlier
+ Note over A,S: Intruder - password brute-force Pitchfork
+ A-&gt;&gt;S: agenda + candidate passwords + rotating IP
+ S--&gt;&gt;A: 302 Found superman - login success
+ A-&gt;&gt;S: GET /my-account?id=agenda authenticated
+ S--&gt;&gt;A: Account page - lab solved
 </div>
 
 <hr />
@@ -259,6 +259,23 @@ sequenceDiagram
 <p><strong>A header is only trustworthy if something verifies it.</strong> Relying on <code class="language-plaintext highlighter-rouge">X-Forwarded-For</code> to know the “real” client IP, without confirming the request came through an actual trusted proxy, lets anyone claim to be any IP they want.</p>
 
 <p><strong>Pitchfork beats Cluster Bomb when two lists should move together</strong> — a username list paired one-to-one with a list of throwaway IPs, instead of testing every username against every IP.</p>
+
+
+  <script src="https://giscus.app/client.js"
+        data-repo="renekerr/renekerr.github.io"
+        data-repo-id="R_kgDOS3a2UA"
+        data-category="Announcements"
+        data-category-id="DIC_kwDOS3a2UM4DCBOG"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
 
 </div>
 
@@ -274,27 +291,27 @@ sequenceDiagram
     
       <li>
         <h3>
-          <a href="/ctf/web/2026/07/10/blog/">
-            Blog
-            <small>10 Jul 2026</small>
+          <a href="/ctf/puzzle/steganography/web/privesc/2026/08/19/biohazard-ctf/">
+            Biohazard CTF: Unraveling a Resident Evil Puzzle Box
+            <small>19 Aug 2026</small>
           </a>
         </h3>
       </li>
     
       <li>
         <h3>
-          <a href="/ctf/2026/07/08/watcher/">
-            Watcher
-            <small>08 Jul 2026</small>
+          <a href="/ctf/web/privesc/joomla/2026/08/16/joker-ctf/">
+            Joker CTF
+            <small>16 Aug 2026</small>
           </a>
         </h3>
       </li>
     
       <li>
         <h3>
-          <a href="/ctf/2026/07/06/stuxctf/">
-            StuxCTF
-            <small>06 Jul 2026</small>
+          <a href="/ctf/web/privesc/2026/08/09/boilerctf/">
+            BoilerCTF
+            <small>09 Aug 2026</small>
           </a>
         </h3>
       </li>

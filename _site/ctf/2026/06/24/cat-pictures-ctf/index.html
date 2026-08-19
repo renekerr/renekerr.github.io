@@ -109,12 +109,12 @@
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nmap <span class="nt">-sS</span> <span class="nt">-sC</span> <span class="nt">-sV</span> <span class="nt">-p-</span> &lt;TARGET_IP&gt;
 
-PORT     STATE    SERVICE      VERSION
-21/tcp   filtered ftp
-22/tcp   open     ssh          OpenSSH 8.2p1
+PORT STATE SERVICE VERSION
+21/tcp filtered ftp
+22/tcp open ssh OpenSSH 8.2p1
 2375/tcp filtered docker
-4420/tcp open     nvm-express?
-8080/tcp open     http         Apache httpd 2.4.46
+4420/tcp open nvm-express?
+8080/tcp open http Apache httpd 2.4.46
 </code></pre></div></div>
 
 <p>Three open ports, two filtered. The web server is phpBB. Port 4420 is an “Internal Shell Service” that requires a password. SSH is available but we need credentials first.</p>
@@ -133,7 +133,7 @@ Knock knock! Magic numbers: 1111, 2222, 3333, 4444
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 knockit.py <span class="nt">-d</span> 300 &lt;TARGET_IP&gt; 1111 2222 3333 4444 <span class="o">&amp;&amp;</span> <span class="nb">sleep </span>1 <span class="o">&amp;&amp;</span> nmap <span class="nt">-p21</span> &lt;TARGET_IP&gt;
 
-PORT   STATE    SERVICE
+PORT STATE SERVICE
 21/tcp filtered ftp
 </code></pre></div></div>
 
@@ -200,7 +200,7 @@ root@7546fa2336d6:/#
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">df</span> <span class="nt">-h</span>
 
-/dev/xvda1       20G   11G  8.4G  55% /opt/clean
+/dev/xvda1 20G 11G 8.4G 55% /opt/clean
 </code></pre></div></div>
 
 <p>Wait — <code class="language-plaintext highlighter-rouge">/dev/xvda1</code> is the host’s disk, and it’s mounted here at <code class="language-plaintext highlighter-rouge">/opt/clean</code>. Let’s see what’s there:</p>
@@ -247,12 +247,12 @@ root@ip-10-128-184-85:~#
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat</span> /etc/knockd.conf
 
 <span class="o">[</span>options]
-        UseSyslog
+ UseSyslog
 <span class="o">[</span>openFTP]
-        sequence    <span class="o">=</span> 1111,2222,3333,4444
-        seq_timeout <span class="o">=</span> 15
-        <span class="nb">command</span>     <span class="o">=</span> /sbin/iptables <span class="nt">-A</span> INPUT <span class="nt">-s</span> %IP% <span class="nt">-p</span> tcp <span class="nt">--dport</span> 21 <span class="nt">-j</span> ACCEPT <span class="o">&amp;&amp;</span> iptables <span class="nt">-D</span> INPUT <span class="nt">-p</span> tcp <span class="nt">--dport</span> 21 <span class="nt">-j</span> REJECT
-        tcpflags    <span class="o">=</span> syn
+ sequence <span class="o">=</span> 1111,2222,3333,4444
+ seq_timeout <span class="o">=</span> 15
+ <span class="nb">command</span> <span class="o">=</span> /sbin/iptables <span class="nt">-A</span> INPUT <span class="nt">-s</span> %IP% <span class="nt">-p</span> tcp <span class="nt">--dport</span> 21 <span class="nt">-j</span> ACCEPT <span class="o">&amp;&amp;</span> iptables <span class="nt">-D</span> INPUT <span class="nt">-p</span> tcp <span class="nt">--dport</span> 21 <span class="nt">-j</span> REJECT
+ tcpflags <span class="o">=</span> syn
 </code></pre></div></div>
 
 <p>The configuration looks correct. Now check the logs:</p>
@@ -295,8 +295,8 @@ killall knockd
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 knockit.py <span class="nt">-d</span> 300 &lt;TARGET_IP&gt; 1111 2222 3333 4444 <span class="o">&amp;&amp;</span> <span class="nb">sleep </span>1 <span class="o">&amp;&amp;</span> nmap <span class="nt">-p21</span> &lt;TARGET_IP&gt;
 
-PORT   STATE SERVICE
-21/tcp open  ftp
+PORT STATE SERVICE
+21/tcp open ftp
 </code></pre></div></div>
 
 <p>Port 21 opens immediately. One line fix. Massive impact.</p>
@@ -307,19 +307,33 @@ PORT   STATE SERVICE
 
 <div class="mermaid">
 graph TD
-    A["nmap scan"] --&gt; B["Port 8080<br />phpBB forum"]
-    B --&gt; C["Post hint<br />Port Knocking 1111 2222 3333 4444"]
-    C --&gt; D["knockit attempt<br />fails silently"]
-    D --&gt; E["External research<br />password sardinethecat"]
-    E --&gt; F["Port 4420 shell<br />limited environment"]
-    F --&gt; G["Reverse shell<br />mkfifo to bash"]
-    G --&gt; H["Binary runme<br />strings analysis"]
-    H --&gt; I["SSH key generation<br />password rebecca"]
-    I --&gt; J["SSH login<br />second container as root"]
-    J --&gt; K["Discover /opt/clean<br />mounted from host"]
-    K --&gt; L["Cron job injection<br />reverse shell payload"]
-    L --&gt; M["Root on host<br />escape complete"]
-    M --&gt; N["Investigate knockd logs<br />find iptables path bug"]
+ subgraph RECON["RECON"]
+  A["nmap scan puerto 8080"]
+ end
+ 
+ subgraph ENUM["ENUMERATION"]
+  B["phpBB forum descubierto"] --&gt; C["Port knocking hint: 1111 2222 3333 4444"]
+ end
+ 
+ subgraph EXPL["EXPLOITATION"]
+  D["knockit con secuencia"] --&gt; E["Port 4420 shell obtenido"]
+  F["Binary analysis descubre SSH key"] --&gt; G["SSH login como root"]
+ end
+ 
+ subgraph PRIVESC["PRIVESC"]
+  H["/opt/clean descubierto (host mounted)"] --&gt; I["Cron job injection"]
+  I --&gt; J["Root on host obtenido"]
+ end
+ 
+ subgraph POST["POST-EXPLOITATION"]
+  K["Investigar knockd logs - iptables bug"]
+ end
+ 
+ A --&gt; B
+ C --&gt; D
+ E --&gt; F
+ G --&gt; H
+ J --&gt; K
 </div>
 
 <hr />
@@ -332,6 +346,23 @@ graph TD
 
 <p><strong>Mounted directories from the host can be escape vectors.</strong> If you mount a directory and run something from it as root, the container can inject code that executes with host privileges. A simple <code class="language-plaintext highlighter-rouge">ro</code> (read-only) flag would have prevented this entirely.</p>
 
+
+
+  <script src="https://giscus.app/client.js"
+        data-repo="renekerr/renekerr.github.io"
+        data-repo-id="R_kgDOS3a2UA"
+        data-category="Announcements"
+        data-category-id="DIC_kwDOS3a2UM4DCBOG"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
 
 </div>
 
@@ -347,27 +378,27 @@ graph TD
     
       <li>
         <h3>
-          <a href="/ctf/web/2026/07/10/blog/">
-            Blog
-            <small>10 Jul 2026</small>
+          <a href="/ctf/puzzle/steganography/web/privesc/2026/08/19/biohazard-ctf/">
+            Biohazard CTF: Unraveling a Resident Evil Puzzle Box
+            <small>19 Aug 2026</small>
           </a>
         </h3>
       </li>
     
       <li>
         <h3>
-          <a href="/ctf/2026/07/08/watcher/">
-            Watcher
-            <small>08 Jul 2026</small>
+          <a href="/ctf/web/privesc/joomla/2026/08/16/joker-ctf/">
+            Joker CTF
+            <small>16 Aug 2026</small>
           </a>
         </h3>
       </li>
     
       <li>
         <h3>
-          <a href="/websec/2026/07/07/username-enumeration-timing/">
-            Username Enumeration via Response Timing
-            <small>07 Jul 2026</small>
+          <a href="/ctf/web/privesc/2026/08/09/boilerctf/">
+            BoilerCTF
+            <small>09 Aug 2026</small>
           </a>
         </h3>
       </li>

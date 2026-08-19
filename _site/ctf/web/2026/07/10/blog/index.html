@@ -109,11 +109,11 @@
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nmap <span class="nt">-sV</span> <span class="nt">-sC</span> <span class="nt">-O</span> <span class="nt">-p</span> 22,80,139,445 &lt;TARGET_IP&gt;
 
-PORT     STATE SERVICE     VERSION
-22/tcp   open  ssh         OpenSSH 7.6p1 Ubuntu 4ubuntu0.3
-80/tcp   open  http        Apache httpd 2.4.29 <span class="o">(</span>Ubuntu<span class="o">)</span>
-139/tcp  open  netbios-ssn Samba smbd 3.X - 4.X
-445/tcp  open  netbios-ssn Samba smbd 4.7.6-Ubuntu
+PORT STATE SERVICE VERSION
+22/tcp open ssh OpenSSH 7.6p1 Ubuntu 4ubuntu0.3
+80/tcp open http Apache httpd 2.4.29 <span class="o">(</span>Ubuntu<span class="o">)</span>
+139/tcp open netbios-ssn Samba smbd 3.X - 4.X
+445/tcp open netbios-ssn Samba smbd 4.7.6-Ubuntu
 </code></pre></div></div>
 
 <p>The system is running Linux 4.15 with WordPress 5.0 on port 80. Both SSH and Samba services are present, which could be useful, but the web application is where the vulnerability lies.</p>
@@ -142,8 +142,8 @@ Users:
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>smbmap <span class="nt">-H</span> blog.thm
 
-<span class="o">[</span>+] Disk: BillySMB                    Permissions: READ, WRITE
-    Comment: Billy<span class="s1">'s local SMB Share
+<span class="o">[</span>+] Disk: BillySMB Permissions: READ, WRITE
+ Comment: Billy<span class="s1">'s local SMB Share
 </span></code></pre></div></div>
 
 <p>The SMB share was accessible anonymously. I downloaded several files (an image, a video, a PNG) but the steganographic image only contained a red herring — a text file saying “You’ve found yourself in a rabbit hole, friend.” This was a deliberate distraction.</p>
@@ -231,8 +231,8 @@ Not an Admin
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ltrace /usr/sbin/checker
 
-getenv<span class="o">(</span><span class="s2">"admin"</span><span class="o">)</span>                    <span class="o">=</span> NULL
-puts<span class="o">(</span><span class="s2">"Not an Admin"</span><span class="o">)</span>               <span class="o">=</span> 13
+getenv<span class="o">(</span><span class="s2">"admin"</span><span class="o">)</span> <span class="o">=</span> NULL
+puts<span class="o">(</span><span class="s2">"Not an Admin"</span><span class="o">)</span> <span class="o">=</span> 13
 Not an Admin
 +++ exited <span class="o">(</span>status 0<span class="o">)</span> +++
 </code></pre></div></div>
@@ -242,8 +242,8 @@ Not an Admin
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">admin</span><span class="o">=</span>1
 ltrace /usr/sbin/checker
 
-getenv<span class="o">(</span><span class="s2">"admin"</span><span class="o">)</span>                    <span class="o">=</span> <span class="s2">"1"</span>
-setuid<span class="o">(</span>0<span class="o">)</span>                          <span class="o">=</span> <span class="nt">-1</span>
+getenv<span class="o">(</span><span class="s2">"admin"</span><span class="o">)</span> <span class="o">=</span> <span class="s2">"1"</span>
+setuid<span class="o">(</span>0<span class="o">)</span> <span class="o">=</span> <span class="nt">-1</span>
 system<span class="o">(</span><span class="s2">"/bin/bash"</span>
 </code></pre></div></div>
 
@@ -283,18 +283,31 @@ define<span class="o">(</span><span class="s1">'DB_HOST'</span>, <span class="s1
 
 <div class="mermaid">
 graph TD
-    A["Port scan<br />nmap"] --&gt; B["WordPress 5.0<br />identified"]
-    B --&gt; C["User enumeration<br />wpscan"]
-    C --&gt; D["kwheel user<br />found"]
-    D --&gt; E["Brute-force attack<br />Hydra rockyou.txt"]
-    E --&gt; F["Weak password<br />cutiepie1 cracked"]
-    F --&gt; G["WordPress access<br />authenticated but non-admin"]
-    G --&gt; H["CVE-2019-8943<br />Metasploit wp_crop_rce"]
-    H --&gt; I["Reverse shell<br />www-data obtained"]
-    I --&gt; J["SUID binary found<br />checker identified"]
-    J --&gt; K["ltrace analysis<br />environment variable check"]
-    K --&gt; L["Environment variable<br />admin=1 set"]
-    L --&gt; M["Root shell achieved<br />uid=0"]
+ subgraph RECON["RECON"]
+  A["Port scan nmap"]
+ end
+ 
+ subgraph ENUM["ENUMERATION"]
+  B["WordPress 5.0 identified"] --&gt; C["User enumeration wpscan"]
+  C --&gt; D["kwheel user encontrado"]
+ end
+ 
+ subgraph EXPL["EXPLOITATION"]
+  E["Brute-force Hydra rockyou.txt"] --&gt; F["Password cutiepie1 cracked"]
+  F --&gt; G["WordPress access non-admin"]
+  G --&gt; H["CVE-2019-8943 RCE Metasploit"]
+  H --&gt; I["Reverse shell www-data"]
+ end
+ 
+ subgraph PRIVESC["PRIVESC"]
+  J["SUID binary checker"] --&gt; K["ltrace environment variable"]
+  K --&gt; L["admin=1 environment variable set"]
+  L --&gt; M["Root shell uid=0"]
+ end
+ 
+ A --&gt; B
+ D --&gt; E
+ I --&gt; J
 </div>
 
 <hr />
@@ -308,6 +321,23 @@ graph TD
 <p><strong>Known vulnerabilities in legacy software are critical.</strong> WordPress 5.0 was released over 7 years ago (in real time). Running outdated software with documented RCE vulnerabilities is a significant risk. Regular patching and security monitoring are essential.</p>
 
 <p><strong>Plaintext credentials in configuration files.</strong> Storing database passwords in world-readable configuration files is a common mistake. Secrets should be stored in environment variables or secure vaults, never in code or configs checked into version control.</p>
+
+
+  <script src="https://giscus.app/client.js"
+        data-repo="renekerr/renekerr.github.io"
+        data-repo-id="R_kgDOS3a2UA"
+        data-category="Announcements"
+        data-category-id="DIC_kwDOS3a2UM4DCBOG"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
 
 </div>
 
@@ -323,27 +353,27 @@ graph TD
     
       <li>
         <h3>
-          <a href="/ctf/2026/07/08/watcher/">
-            Watcher
-            <small>08 Jul 2026</small>
+          <a href="/ctf/puzzle/steganography/web/privesc/2026/08/19/biohazard-ctf/">
+            Biohazard CTF: Unraveling a Resident Evil Puzzle Box
+            <small>19 Aug 2026</small>
           </a>
         </h3>
       </li>
     
       <li>
         <h3>
-          <a href="/websec/2026/07/07/username-enumeration-timing/">
-            Username Enumeration via Response Timing
-            <small>07 Jul 2026</small>
+          <a href="/ctf/web/privesc/joomla/2026/08/16/joker-ctf/">
+            Joker CTF
+            <small>16 Aug 2026</small>
           </a>
         </h3>
       </li>
     
       <li>
         <h3>
-          <a href="/ctf/2026/07/06/stuxctf/">
-            StuxCTF
-            <small>06 Jul 2026</small>
+          <a href="/ctf/web/privesc/2026/08/09/boilerctf/">
+            BoilerCTF
+            <small>09 Aug 2026</small>
           </a>
         </h3>
       </li>

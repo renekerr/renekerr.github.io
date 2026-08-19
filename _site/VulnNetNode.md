@@ -16,9 +16,9 @@ rustscan is a fast port scanner that passes open ports to nmap for service detec
 ```bash
 rustscan -a <TARGET_IP> -- -sC -sV
 
-PORT     STATE SERVICE VERSION
-22/tcp   open  ssh     OpenSSH 8.2p1 Ubuntu 4ubuntu0.13
-8080/tcp open  http    Node.js Express framework
+PORT STATE SERVICE VERSION
+22/tcp open ssh OpenSSH 8.2p1 Ubuntu 4ubuntu0.13
+8080/tcp open http Node.js Express framework
 ```
 
 Two services exposed: SSH and a Node.js Express application on port 8080.
@@ -31,9 +31,9 @@ feroxbuster performs recursive content discovery against the web application.
 
 ```bash
 feroxbuster -u http://<TARGET_IP>:8080/ \
-  -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt \
-  -x html,php,txt,js,json,bak \
-  --extract-links --scan-limit 2 --filter-status 401,403,404,405,500
+ -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt \
+ -x html,php,txt,js,json,bak \
+ --extract-links --scan-limit 2 --filter-status 401,403,404,405,500
 
 /login
 ```
@@ -257,14 +257,14 @@ uid=0(root) gid=0(root) groups=0(root)
 
 ```mermaid
 graph TD
-    A["Port scan\nrustscan port 8080"] --> B["Session cookie\nBase64 JSON object"]
-    B --> C["Insecure deserialization\nCVE-2017-5941 node-serialize"]
-    C --> D["Reverse shell\nas www"]
-    D --> E["sudo npm\nNOPASSWD serv-manage"]
-    E --> F["npm preinstall hook\nshell as serv-manage"]
-    F --> G["vulnnet-job.service writable\nsudo systemctl daemon-reload"]
-    G --> H["Option A: reverse shell\nas root"]
-    G --> I["Option B: SUID bash\nbash -p"]
+ A["Port scan\nrustscan port 8080"] --> B["Session cookie\nBase64 JSON object"]
+ B --> C["Insecure deserialization\nCVE-2017-5941 node-serialize"]
+ C --> D["Reverse shell\nas www"]
+ D --> E["sudo npm\nNOPASSWD serv-manage"]
+ E --> F["npm preinstall hook\nshell as serv-manage"]
+ F --> G["vulnnet-job.service writable\nsudo systemctl daemon-reload"]
+ G --> H["Option A: reverse shell\nas root"]
+ G --> I["Option B: SUID bash\nbash -p"]
 ```
 
 ---

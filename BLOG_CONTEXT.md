@@ -6,11 +6,11 @@ Documento de contexto para Claude Code. Describe el estado actual del blog, su e
 
 ## Descripción del proyecto
 
-**Blog:** Low Priv Notes  
-**URL:** https://renekerr.github.io  
-**Repositorio GitHub:** https://github.com/renekerr/renekerr.github.io  
-**Tecnología:** Jekyll + tema Lanyon  
-**Idioma:** Inglés  
+**Blog:** Low Priv Notes 
+**URL:** https://renekerr.github.io 
+**Repositorio GitHub:** https://github.com/renekerr/renekerr.github.io 
+**Tecnología:** Jekyll + tema Lanyon 
+**Idioma:** Inglés 
 
 ### Propósito
 
@@ -24,25 +24,25 @@ No se incluyen flags ni contraseñas en ningún post.
 
 ```
 renekerr.github.io/
-├── _config.yml          # Configuración principal de Jekyll
+├── _config.yml # Configuración principal de Jekyll
 ├── _includes/
-│   ├── head.html        # Cabecera HTML
-│   └── sidebar.html     # Barra lateral (solo Home y About)
+│ ├── head.html # Cabecera HTML
+│ └── sidebar.html # Barra lateral (solo Home y About)
 ├── _layouts/
-│   ├── default.html     # Layout principal (modificado: <br> entre título y tagline)
-│   ├── page.html        # Layout para páginas estáticas
-│   └── post.html        # Layout para posts
-├── _posts/              # Posts publicados (formato: YYYY-MM-DD-titulo.md)
+│ ├── default.html # Layout principal (modificado: <br> entre título y tagline)
+│ ├── page.html # Layout para páginas estáticas
+│ └── post.html # Layout para posts
+├── _posts/ # Posts publicados (formato: YYYY-MM-DD-titulo.md)
 ├── public/
-│   └── css/
-│       ├── lanyon.css   # CSS del tema Lanyon
-│       ├── poole.css    # CSS base de Poole
-│       └── syntax.css   # CSS para resaltado de código
-├── about.md             # Página About
-├── index.html           # Página principal (muestra excerpt + Read more)
-├── Gemfile              # Dependencias Ruby
-├── .gitignore           # Excluye _site/
-└── BLOG_CONTEXT.md      # Este archivo
+│ └── css/
+│ ├── lanyon.css # CSS del tema Lanyon
+│ ├── poole.css # CSS base de Poole
+│ └── syntax.css # CSS para resaltado de código
+├── about.md # Página About
+├── index.html # Página principal (muestra excerpt + Read more)
+├── Gemfile # Dependencias Ruby
+├── .gitignore # Excluye _site/
+└── BLOG_CONTEXT.md # Este archivo
 ```
 
 ---
@@ -50,23 +50,23 @@ renekerr.github.io/
 ## Configuración actual — _config.yml
 
 ```yaml
-title:               Low Priv Notes
-tagline:             'Exploring alternative exploitation paths'
-description:         'Notes, CTF writeups and security research. Focusing on alternative privilege escalation vectors.'
-url:                 'https://renekerr.github.io'
-baseurl:             ''
-paginate:            5
-paginate_path:       "/page:num"
-permalink:           pretty
+title: Low Priv Notes
+tagline: 'Exploring alternative exploitation paths'
+description: 'Notes, CTF writeups and security research. Focusing on alternative privilege escalation vectors.'
+url: 'https://renekerr.github.io'
+baseurl: ''
+paginate: 5
+paginate_path: "/page:num"
+permalink: pretty
 
 author:
-  name:              Rene Kerr
-  url:               https://github.com/renekerr
+ name: Rene Kerr
+ url: https://github.com/renekerr
 
 plugins:
-  - jekyll-paginate
+ - jekyll-paginate
 
-markdown:            kramdown
+markdown: kramdown
 ```
 
 ---
@@ -142,9 +142,9 @@ En `_layouts/default.html` se añadió `<br>` entre el título y el tagline:
 
 ```html
 <h3 class="masthead-title">
-  <a href="{{ site.baseurl }}/" title="Home">{{ site.title }}</a>
-  <br>
-  <small>{{ site.tagline }}</small>
+ <a href="{{ site.baseurl }}/" title="Home">{{ site.title }}</a>
+ <br>
+ <small>{{ site.tagline }}</small>
 </h3>
 ```
 
