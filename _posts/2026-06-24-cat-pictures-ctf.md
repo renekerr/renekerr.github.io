@@ -5,6 +5,7 @@ title: "Cat Pictures CTF"
 date: 2026-06-24
 categories: [ctf]
 tags: [thm, docker, docker-escape, port-knocking, knockd, reverseshell, containerescape]
+redirect_from: /ctf/2026/06/24/cat-pictures-ctf/
 ---
 
 ## Overview

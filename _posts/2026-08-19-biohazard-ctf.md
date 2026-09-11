@@ -5,6 +5,7 @@ title: "Biohazard CTF: Unraveling a Resident Evil Puzzle Box"
 date: 2026-08-19
 categories: [ctf, puzzle, steganography, web, privesc]
 tags: [puzzle-ctf, encoding, steganography, vigenere-cipher, gpg, resident-evil]
+redirect_from: /ctf/puzzle/steganography/web/privesc/2026/08/19/biohazard-ctf/
 ---
 
 ## Overview

@@ -5,6 +5,7 @@ title: "Username Enumeration via Response Timing"
 date: 2026-07-07
 categories: [websec]
 tags: [portswigger, authentication, username-enumeration, timing-attack, burp-suite]
+redirect_from: /websec/2026/07/07/username-enumeration-timing/
 ---
 
 ## Overview

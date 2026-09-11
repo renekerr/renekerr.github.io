@@ -5,6 +5,7 @@ title: "The Marketplace"
 date: 2026-09-01
 categories: [ctf, web, privesc]
 tags: [xss, jwt, sql-injection, sqlmap, wildcard-injection, docker]
+redirect_from: /ctf/web/privesc/2026/09/01/marketplace/
 ---
 
 ## Overview

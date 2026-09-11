@@ -5,6 +5,7 @@ title: "Wgel CTF — Alternative Privilege Escalation Vectors"
 date: 2026-06-11
 categories: [ctf]
 tags: [thm, wget, sudo, privesc, linux]
+redirect_from: /ctf/2026/06/11/wgel-ctf-alternative-privesc-vectors/
 ---
 
 ## Overview

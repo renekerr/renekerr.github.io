@@ -5,6 +5,7 @@ title: "GoldenEye"
 date: 2026-07-04
 categories: [ctf]
 tags: [thm, pop3, email-enumeration, commandinjection, privesc, overlayfs]
+redirect_from: /ctf/2026/07/04/goldeneye/
 ---
 
 ## Overview

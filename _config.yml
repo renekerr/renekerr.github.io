@@ -6,7 +6,7 @@ url:                 'https://renekerr.github.io'
 baseurl:             ''
 paginate:            5
 paginate_path:       "/page:num"
-permalink:           pretty
+permalink:           /:categories/:title/
 
 # Author
 author:
@@ -16,6 +16,7 @@ author:
 # Plugins
 plugins:
   - jekyll-paginate
+  - jekyll-redirect-from
 
 # Markdown
 markdown:            kramdown

@@ -5,6 +5,7 @@ title: "Mindgames"
 date: 2026-09-11
 categories: [ctf, web, privesc]
 tags: [brainfuck, rce, capabilities, openssl, golang]
+redirect_from: /ctf/web/privesc/2026/09/11/mindgames/
 ---
 
 ## Overview

@@ -5,6 +5,7 @@ title: "BoilerCTF"
 date: 2026-08-09
 categories: [ctf, web, privesc]
 tags: [joomla, sar2html, suid, directory-enumeration, privilege-escalation]
+redirect_from: /ctf/web/privesc/2026/08/09/boilerctf/
 ---
 
 ## Overview
