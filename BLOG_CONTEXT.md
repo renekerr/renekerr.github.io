@@ -51,7 +51,7 @@ renekerr.github.io/
 
 ```yaml
 title: Low Priv Notes
-tagline: 'Exploring alternative exploitation paths'
+tagline: ''
 description: 'Notes, CTF writeups and security research. Focusing on alternative privilege escalation vectors.'
 url: 'https://renekerr.github.io'
 baseurl: ''
