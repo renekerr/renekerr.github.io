@@ -49,3 +49,8 @@ article > header .post-meta .d-flex > span { /* "By <author>" */
     width: calc(50% - 0.75rem);
   }
 }
+
+/* ---- Posts: tighten the gap between article body and categories/tags ---- */
+.post-tail-wrapper {
+  margin-top: 2.5rem;
+}
