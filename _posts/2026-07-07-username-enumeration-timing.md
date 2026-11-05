@@ -2,8 +2,9 @@
 layout: post
 mermaid: true
 title: "Username Enumeration via Response Timing"
+description: "The response looks identical is not the same as the response is identical; the clock gives the usernames away."
 date: 2026-07-07
-categories: [websec]
+categories: [Web Security]
 tags: [portswigger, authentication, username-enumeration, timing-attack, burp-suite]
 redirect_from: /websec/2026/07/07/username-enumeration-timing/
 ---
@@ -121,7 +122,7 @@ That landed on `/my-account?id=agenda` — lab solved.
 
 ## Attack Flow
 
-<div class="mermaid">
+```mermaid
 sequenceDiagram
  participant A as Attacker (Burp Suite)
  participant S as Login Endpoint
@@ -142,7 +143,7 @@ sequenceDiagram
  S-->>A: 302 Found superman - login success
  A->>S: GET /my-account?id=agenda authenticated
  S-->>A: Account page - lab solved
-</div>
+```
 
 ---
 

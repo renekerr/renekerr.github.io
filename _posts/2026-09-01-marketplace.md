@@ -2,8 +2,9 @@
 layout: post
 mermaid: true
 title: "The Marketplace"
+description: "A chain of small realistic mistakes: stored XSS against an admin bot, SQL injection, a leaked credential, then tar and Docker group privesc."
 date: 2026-09-01
-categories: [ctf, web, privesc]
+categories: [CTF, Web]
 tags: [xss, jwt, sql-injection, sqlmap, wildcard-injection, docker]
 redirect_from: /ctf/web/privesc/2026/09/01/marketplace/
 ---
@@ -250,7 +251,7 @@ id   # euid=0(root)
 
 ## Attack Flow
 
-<div class="mermaid">
+```mermaid
 graph TD
  subgraph RECON["RECON"]
   A["nmap scan<br/>nginx proxy plus Express backend"]
@@ -275,7 +276,7 @@ graph TD
  A --> B
  C --> D
  H --> I
-</div>
+```
 
 ---
 

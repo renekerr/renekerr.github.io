@@ -2,8 +2,9 @@
 layout: post
 mermaid: true
 title: "Bricks Heist"
+description: "One CVE gets a shell; the interesting half is a fake service mining crypto and a wallet traceable to a sanctioned ransomware operation."
 date: 2026-10-29
-categories: [ctf, web, wordpress]
+categories: [CTF, Web]
 tags: [cve-2024-25600, bricks-builder, wordpress, cryptominer, blockchain-osint, pmtu-blackhole]
 ---
 
@@ -170,7 +171,7 @@ A single `bc1q...` address is just a string until you look it up. Dropping it in
 
 ## Attack Flow
 
-<div class="mermaid">
+```mermaid
 graph TD
  subgraph RECON["RECON"]
   A["nmap<br/>443 Apache WordPress 6.5"]
@@ -193,7 +194,7 @@ graph TD
  A --> B
  C --> D
  E --> F
-</div>
+```
 
 ---
 

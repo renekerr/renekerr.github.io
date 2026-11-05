@@ -2,8 +2,9 @@
 layout: post
 mermaid: true
 title: "Mindgames"
+description: "A browser Brainfuck interpreter is a disguise for RCE, with a direct path to root through an overlooked Linux capability."
 date: 2026-09-11
-categories: [ctf, web, privesc]
+categories: [CTF, Web]
 tags: [brainfuck, rce, capabilities, openssl, golang]
 redirect_from: /ctf/web/privesc/2026/09/11/mindgames/
 ---
@@ -173,7 +174,7 @@ The binary doesn't embed a Python interpreter at all — it uses Go's `os/exec` 
 
 ## Attack Flow
 
-<div class="mermaid">
+```mermaid
 graph TD
  subgraph RECON["RECON"]
   A["nmap scan<br/>Go server on port 80"]
@@ -196,7 +197,7 @@ graph TD
  A --> B
  C --> D
  E --> F
-</div>
+```
 
 ---
 

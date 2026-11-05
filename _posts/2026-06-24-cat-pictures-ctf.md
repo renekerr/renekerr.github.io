@@ -2,8 +2,9 @@
 layout: post
 mermaid: true
 title: "Cat Pictures CTF"
+description: "A port-knocking misconfiguration gets you in; a host-mounted directory turns a container shell into root on the host."
 date: 2026-06-24
-categories: [ctf]
+categories: [CTF]
 tags: [thm, docker, docker-escape, port-knocking, knockd, reverseshell, containerescape]
 redirect_from: /ctf/2026/06/24/cat-pictures-ctf/
 ---
@@ -243,7 +244,7 @@ Port 21 opens immediately. One line fix. Massive impact.
 
 ## Attack Flow
 
-<div class="mermaid">
+```mermaid
 graph TD
  subgraph RECON["RECON"]
   A["nmap scan puerto 8080"]
@@ -272,7 +273,7 @@ graph TD
  E --> F
  G --> H
  J --> K
-</div>
+```
 
 ---
 

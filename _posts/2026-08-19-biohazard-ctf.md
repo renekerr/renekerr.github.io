@@ -2,8 +2,9 @@
 layout: post
 mermaid: true
 title: "Biohazard CTF: Unraveling a Resident Evil Puzzle Box"
+description: "A puzzle-heavy, Resident Evil themed box: decode, deconstruct and extract each piece to move from recon to root."
 date: 2026-08-19
-categories: [ctf, puzzle, steganography, web, privesc]
+categories: [CTF, Puzzle]
 tags: [puzzle-ctf, encoding, steganography, vigenere-cipher, gpg, resident-evil]
 redirect_from: /ctf/puzzle/steganography/web/privesc/2026/08/19/biohazard-ctf/
 ---
@@ -253,7 +254,7 @@ flag: REDACTED
 
 ## Attack Chain
 
-<div class="mermaid">
+```mermaid
 graph TD
  subgraph RECON["RECON"]
   A["Port scan: FTP SSH HTTP"]
@@ -285,7 +286,7 @@ graph TD
  A --> B
  G --> H
  M --> N
-</div>
+```
 
 ---
 

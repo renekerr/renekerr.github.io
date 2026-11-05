@@ -2,8 +2,9 @@
 layout: post
 mermaid: true
 title: "GoldenEye"
+description: "A Bond-themed box where the mailboxes, not the web app, are the real attack surface, and the way in is a config field nobody validated."
 date: 2026-07-04
-categories: [ctf]
+categories: [CTF]
 tags: [thm, pop3, email-enumeration, commandinjection, privesc, overlayfs]
 redirect_from: /ctf/2026/07/04/goldeneye/
 ---
@@ -199,7 +200,7 @@ Root.
 
 ## Attack Flow
 
-<div class="mermaid">
+```mermaid
 graph TD
  subgraph RECON["RECON"]
   A["Nmap scan SMTP HTTP POP3"]
@@ -226,7 +227,7 @@ graph TD
  E --> F
  G --> H
  K --> L
-</div>
+```
 
 ---
 

@@ -2,8 +2,9 @@
 layout: post
 mermaid: true
 title: "BoilerCTF"
+description: "Methodical enumeration pays off; initial access comes through a forgotten third-party tool rather than Joomla itself."
 date: 2026-08-09
-categories: [ctf, web, privesc]
+categories: [CTF, Web]
 tags: [joomla, sar2html, suid, directory-enumeration, privilege-escalation]
 redirect_from: /ctf/web/privesc/2026/08/09/boilerctf/
 ---
@@ -159,7 +160,7 @@ The `euid=0` confirms I'm running as root. No flags are discussed here.
 
 ## Attack Flow
 
-<div class="mermaid">
+```mermaid
 graph TD
  subgraph RECON["RECON"]
   A["nmap 4 puertos detectados"]
@@ -185,7 +186,7 @@ graph TD
  A --> B
  E --> F
  F --> G
-</div>
+```
 
 ---
 

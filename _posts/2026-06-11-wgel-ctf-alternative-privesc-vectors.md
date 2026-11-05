@@ -2,8 +2,9 @@
 layout: post
 mermaid: true
 title: "Wgel CTF — Alternative Privilege Escalation Vectors"
+description: "A straightforward box where the focus is entirely on the privilege-escalation techniques, not the flag."
 date: 2026-06-11
-categories: [ctf]
+categories: [CTF]
 tags: [thm, wget, sudo, privesc, linux]
 redirect_from: /ctf/2026/06/11/wgel-ctf-alternative-privesc-vectors/
 ---
@@ -366,7 +367,7 @@ uid=0(root) gid=0(root) groups=0(root)
 ## Attack Flow
 
 
-<div class="mermaid">
+```mermaid
 graph TD
  subgraph RECON["RECON"]
   A["nmap scan puerto 80"]
@@ -390,7 +391,7 @@ graph TD
  C --> D
  E --> F
  F --> G
-</div>
+```
 
 ---
 
