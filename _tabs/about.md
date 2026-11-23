@@ -5,7 +5,7 @@ order: 4
 ---
 
 Database Administrator & Data Engineer<br>
-Curious by nature, passionate about cybersecurity<br>
+Cybersecurity enthusiast<br>
 Interested in understanding how systems work, why vulnerabilities exist, and how they can be identified and addressed<br>
 Learning offensive security through hands-on labs, Capture The Flag challenges, research, and personal projects<br>
 This blog is where I document what I learn: CTFs, labs, methodologies, CVE research, and cybersecurity experiments<br>
